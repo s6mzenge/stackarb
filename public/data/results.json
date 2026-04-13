@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-13T21:00:43.161869+00:00",
+  "scraped_at": "2026-04-13T21:15:26.244353+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -836,17 +836,17 @@
           "url": "https://uk.iherb.com/pr/nutricost-astaxanthin-4-mg-120-softgels/132855",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": 16.9,
+          "scraped_price": 17.14,
           "scraped_amount": 120,
-          "scraped_dosage": 4,
+          "scraped_dosage": 4.0,
           "known_price": 16.9,
           "known_amount": 120,
           "known_dosage": 4,
-          "final_price": 16.9,
+          "final_price": 17.14,
           "final_amount": 120,
-          "final_dosage": 4,
-          "theo_cost": 0.845,
-          "prac_cost": 0.845,
+          "final_dosage": 4.0,
+          "theo_cost": 0.8570000000000001,
+          "prac_cost": 0.8570000000000001,
           "prac_caps": 6,
           "data_source": "live",
           "price_changed": false
