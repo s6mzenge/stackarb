@@ -130,6 +130,9 @@ def _init_playwright(log):
         # Accept cookie consent (GDPR banner)
         _accept_cookies(log)
 
+        # Set UK delivery location (critical for UK pricing/availability)
+        _set_uk_location(log)
+
         # Check we're not CAPTCHA'd on homepage
         title = _page.title() or ""
         if "robot" in title.lower() or "captcha" in title.lower():
@@ -152,12 +155,11 @@ def _init_playwright(log):
 def _accept_cookies(log):
     """Click the Amazon cookie consent button if present."""
     try:
-        # Amazon UK cookie consent button (various selectors)
         for selector in [
-            "#sp-cc-accept",                    # Standard accept button
+            "#sp-cc-accept",
             "[data-action='sp-cc'][data-action-type='ACCEPT_ALL']",
-            "input[name='accept']",             # Older style
-            "#a-autoid-0-announce",             # Another variant
+            "input[name='accept']",
+            "#a-autoid-0-announce",
         ]:
             try:
                 btn = _page.locator(selector)
@@ -171,6 +173,66 @@ def _accept_cookies(log):
         log(f"    [Amazon] No cookie consent banner found (may be pre-accepted)")
     except Exception as e:
         log(f"    [Amazon] Cookie consent handling: {e}")
+
+
+def _set_uk_location(log):
+    """Set delivery location to a UK postcode so Amazon shows UK pricing."""
+    try:
+        # Click the "Deliver to" link to open location popup
+        deliver_link = _page.locator("#glow-ingress-block, #nav-global-location-popover-link")
+        if deliver_link.count() == 0 or not deliver_link.first.is_visible():
+            log(f"    [Amazon] No delivery location widget found")
+            return
+
+        deliver_link.first.click()
+        time.sleep(1.5)
+
+        # Enter UK postcode in the popup input
+        postcode_input = _page.locator("#GLUXZipUpdateInput")
+        if postcode_input.count() > 0 and postcode_input.first.is_visible():
+            postcode_input.first.fill("")
+            postcode_input.first.type("SW1A 1AA", delay=50)  # Westminster
+            time.sleep(0.5)
+
+            # Click apply/submit button
+            for btn_selector in [
+                "#GLUXZipUpdate",
+                "[data-action='GLUXPostalInputAction']",
+                "#GLUXZipUpdate input[type='submit']",
+            ]:
+                try:
+                    btn = _page.locator(btn_selector)
+                    if btn.count() > 0 and btn.first.is_visible():
+                        btn.first.click()
+                        log(f"    [Amazon] UK postcode submitted (SW1A 1AA)")
+                        time.sleep(2)
+
+                        # Close any remaining popup
+                        try:
+                            close_btn = _page.locator("#GLUXConfirmClose, .a-popover-footer button")
+                            if close_btn.count() > 0 and close_btn.first.is_visible():
+                                close_btn.first.click()
+                                time.sleep(1)
+                        except Exception:
+                            pass
+
+                        # Verify location was set
+                        try:
+                            location_text = _page.locator("#glow-ingress-line2").text_content()
+                            if location_text:
+                                log(f"    [Amazon] Delivery location: {location_text.strip()}")
+                        except Exception:
+                            pass
+                        return
+                except Exception:
+                    continue
+
+            log(f"    [Amazon] Could not find submit button for postcode")
+        else:
+            log(f"    [Amazon] Postcode input not found in popup")
+
+    except Exception as e:
+        log(f"    [Amazon] Location setting: {type(e).__name__}: {e}")
 
 
 def _cleanup():
