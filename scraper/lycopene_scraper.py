@@ -344,8 +344,10 @@ def extract_capsule_count(variant_title, product_title, body_text, log):
 
 def _shopify_html_fallback(url, session, log, dosage_extractor):
     """Fallback when Shopify JSON API is blocked — scrape HTML directly."""
-    log(f"    Trying HTML fallback...")
-    status, html = fetch_page(url, session)
+    # Strip query params (selling_plan, variant IDs can cause redirects)
+    clean_url = url.split('?')[0]
+    log(f"    Trying HTML fallback ({clean_url})...")
+    status, html = fetch_page(clean_url, session)
     if status != 200:
         log(f"    !! HTML fallback failed: HTTP {status}")
         return None
