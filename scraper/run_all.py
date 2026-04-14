@@ -33,7 +33,6 @@ SUPPLEMENT_CONFIG = {
         "strategies": {
             "shopify":     o3.extract_shopify,
             "jsonld":      o3.extract_jsonld,
-            "amazon":      o3.extract_amazon,
             "meta_jsonld": o3.extract_meta_jsonld,
             "iherb":       o3.extract_iherb,
             "superdrug":   o3.extract_superdrug,
@@ -51,7 +50,6 @@ SUPPLEMENT_CONFIG = {
         "known": ax.KNOWN,
         "strategies": {
             "shopify":  ax.extract_shopify,
-            "amazon":   ax.extract_amazon,
             "dolphin":  ax.extract_dolphin,
             "iherb":    ax.extract_iherb,
         },
