@@ -393,14 +393,96 @@ def _variant_pack_multiplier(variant_title):
 
 # ── STRATEGY: SHOPIFY ──────────────────────────────────────────────────────
 
+def _shopify_html_fallback(url, session, log, dosage_extractor):
+    """Fallback when Shopify JSON API is blocked — scrape HTML directly."""
+    log(f"    Trying HTML fallback...")
+    status, html = fetch_page(url, session)
+    if status != 200:
+        log(f"    !! HTML fallback failed: HTTP {status}")
+        return None
+
+    soup = BeautifulSoup(html, "lxml")
+    page_text = soup.get_text(" ", strip=True)
+
+    title_tag = soup.find("h1")
+    title = title_tag.get_text(strip=True) if title_tag else ""
+    if not title:
+        title = soup.title.string.strip() if soup.title and soup.title.string else ""
+    log(f"    Title (HTML): {title[:120]}")
+
+    # Price from JSON-LD → meta tags → page text
+    price = None
+    name = title
+    for tag in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(tag.string)
+            items = data if isinstance(data, list) else [data]
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                if "@graph" in item:
+                    items.extend(item["@graph"] if isinstance(item["@graph"], list)
+                                 else [item["@graph"]])
+                    continue
+                if "Product" in str(item.get("@type", "")):
+                    name = item.get("name", name)
+                    log(f"    JSON-LD Product: {name[:100]}")
+                    offers = item.get("offers", {})
+                    if isinstance(offers, dict) and offers.get("price"):
+                        p = float(offers["price"])
+                        if p > 0:
+                            price = p
+                    elif isinstance(offers, list):
+                        for o in offers:
+                            p = o.get("price")
+                            if p and float(p) > 0:
+                                price = float(p)
+                                break
+                    if not price:
+                        off = offers if isinstance(offers, dict) else {}
+                        p = off.get("lowPrice") or off.get("price")
+                        if p and float(p) > 0:
+                            price = float(p)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+        if price:
+            log(f"    Price from JSON-LD: GBP {price}")
+            break
+
+    if not price:
+        for prop in ["product:price:amount", "og:price:amount"]:
+            tag = soup.find("meta", property=prop)
+            if tag and tag.get("content"):
+                try:
+                    p = float(tag["content"])
+                    if p > 0:
+                        price = p
+                        log(f"    Price from meta {prop}: GBP {price}")
+                except ValueError:
+                    pass
+
+    if not price:
+        for m_price in re.finditer(r"£(\d+\.\d{2})", page_text[:8000]):
+            val = float(m_price.group(1))
+            if 2 < val < 200:
+                price = val
+                log(f"    Price from page text: GBP {price}")
+                break
+
+    log(f"    -> Price: GBP {price}")
+    amount = extract_capsule_count("", name, page_text, log)
+    dosage = dosage_extractor(name, page_text, page_text, log)
+    return {"price": price, "amount": amount, "dosage": dosage}
+
+
 def extract_shopify(product, session, log):
     url = product["url"]
 
     log(f"    Fetching Shopify JSON...")
     sj = fetch_shopify_json(url, session)
     if not sj or "product" not in sj:
-        log(f"    !! Shopify JSON not available")
-        return None
+        log(f"    !! Shopify JSON not available — trying HTML fallback")
+        return _shopify_html_fallback(url, session, log, extract_epa_dosage)
 
     pj = sj["product"]
     title = pj.get("title", "")
