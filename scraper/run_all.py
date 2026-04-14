@@ -208,7 +208,38 @@ def main():
         json.dump(output, f, indent=2, ensure_ascii=False)
 
     print(f"\n  Done! JSON written to {output_file}")
-    print(f"  Total size: {os.path.getsize(output_file) / 1024:.1f} KB\n")
+    print(f"  Total size: {os.path.getsize(output_file) / 1024:.1f} KB")
+
+    # ── Append to history.json ─────────────────────────────────────
+    history_file = os.path.join(output_dir, "history.json")
+    history = {"snapshots": []}
+    if os.path.exists(history_file):
+        try:
+            with open(history_file, "r", encoding="utf-8") as f:
+                history = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            history = {"snapshots": []}
+
+    # Build snapshot: { date, omega3: {brand: cost, ...}, ... }
+    snapshot = {"date": output["scraped_at"]}
+    for key, supp in output["supplements"].items():
+        costs = {}
+        for r in supp["results"]:
+            if r["prac_cost"] is not None:
+                costs[r["brand"]] = round(r["prac_cost"], 6)
+        snapshot[key] = costs
+    history["snapshots"].append(snapshot)
+
+    # Cap at 365 entries (~6 months at 2x/day)
+    MAX_SNAPSHOTS = 365
+    if len(history["snapshots"]) > MAX_SNAPSHOTS:
+        history["snapshots"] = history["snapshots"][-MAX_SNAPSHOTS:]
+
+    with open(history_file, "w", encoding="utf-8") as f:
+        json.dump(history, f, indent=None, ensure_ascii=False)
+
+    print(f"  History: {len(history['snapshots'])} snapshots in {history_file}")
+    print(f"  History size: {os.path.getsize(history_file) / 1024:.1f} KB\n")
 
 
 if __name__ == "__main__":
