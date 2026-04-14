@@ -1,32 +1,35 @@
 """
-AMAZON SESSION MANAGER — Playwright-based
-===========================================
+AMAZON SESSION MANAGER v2 — Headed Chrome via Xvfb
+====================================================
 Shared across all scrapers.
 
-WHY PLAYWRIGHT:
-  1. Amazon renders prices via JavaScript — plain requests gets empty price elements
-  2. Amazon CAPTCHAs datacenter IPs — Playwright with stealth patches looks like a real browser
-  3. Cookie consent must be accepted before Amazon shows full content
+KEY CHANGES FROM v1:
+  1. HEADED MODE (not headless) + Xvfb virtual display
+     - Eliminates ALL headless-specific detection signals
+     - navigator.webdriver, CDP detection, rendering differences — all gone
+     - Requires `xvfb-run python scraper/run_all.py` in the workflow
 
-STRATEGY:
-  1. Launch stealth Playwright (headless Chromium)
-  2. Navigate to amazon.co.uk → accept cookie consent
-  3. For each product page: page.goto() → wait for price to render → return HTML
-  4. Browser stays open across all Amazon products
+  2. SYSTEM CHROME (`channel="chrome"`)
+     - Uses the real Google Chrome installed on the runner, not Playwright's
+       bundled Chromium. Different binary signature.
+     - GitHub Actions Ubuntu has Chrome pre-installed.
 
-  Fallback: plain requests (for when Amazon intermittently allows it)
+  3. HUMAN-LIKE INTERACTION on homepage
+     - Random mouse movements, scrolling, small delays
+     - Makes the session look like a real user before hitting product pages
+
+  4. UK GEOLOCATION in browser context
+
+  5. FIREFOX FALLBACK if Chrome gets blocked
+     - Completely different browser fingerprint
 
 REQUIREMENTS:
+  Workflow: `xvfb-run python scraper/run_all.py`
   pip install playwright
   playwright install chromium --with-deps
-  Optional: pip install playwright-stealth
-
-Usage:
-  from amazon_session import fetch_amazon_page
-  status, html = fetch_amazon_page(url, log)
 """
 
-import time, re
+import time, re, random
 
 try:
     from playwright.sync_api import sync_playwright
@@ -38,19 +41,27 @@ try:
     from playwright_stealth import stealth_sync
     HAS_STEALTH = True
 except ImportError:
-    HAS_STEALTH = False
+    try:
+        from playwright_stealth import Stealth
+        stealth_sync = lambda page: Stealth().apply_stealth_sync(page)
+        HAS_STEALTH = True
+    except ImportError:
+        HAS_STEALTH = False
 
 
 # ── Config ─────────────────────────────────────────────────────────────────
 
 AMAZON_HOME = "https://www.amazon.co.uk/"
-COURTESY_DELAY = 3.0  # seconds between product page navigations
+COURTESY_DELAY = 3.5
 
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/125.0.0.0 Safari/537.36"
 )
+
+# London coordinates for geolocation
+UK_GEO = {"latitude": 51.5074, "longitude": -0.1278}
 
 
 # ── Module-level state ─────────────────────────────────────────────────────
@@ -62,48 +73,134 @@ _page = None
 _initialized = False
 _init_failed = False
 _last_nav_time = 0
+_browser_type = None  # "chrome" or "firefox"
 
 
-# ── Playwright lifecycle ───────────────────────────────────────────────────
+# ── Human-like interaction ─────────────────────────────────────────────────
 
-def _init_playwright(log):
-    """Launch stealth Playwright, visit Amazon homepage, accept cookies."""
-    global _pw, _browser, _context, _page, _initialized, _init_failed
+def _human_interact(page, log):
+    """Simulate human behavior on the page to build session trust."""
+    try:
+        # Random mouse movements
+        for _ in range(3):
+            x = random.randint(200, 1200)
+            y = random.randint(200, 600)
+            page.mouse.move(x, y)
+            time.sleep(random.uniform(0.2, 0.5))
 
-    if not HAS_PLAYWRIGHT:
-        log(f"    [Amazon] Playwright not installed — using plain requests")
-        _init_failed = True
-        return False
+        # Scroll down a bit
+        page.mouse.wheel(0, random.randint(200, 500))
+        time.sleep(random.uniform(0.5, 1.0))
+
+        # Scroll back up
+        page.mouse.wheel(0, -random.randint(100, 300))
+        time.sleep(random.uniform(0.3, 0.7))
+
+        log(f"    [Amazon] Human interaction simulated")
+    except Exception:
+        pass
+
+
+# ── Browser launch strategies ──────────────────────────────────────────────
+
+def _try_chrome_headed(log):
+    """Strategy 1: System Chrome in HEADED mode (best anti-detection)."""
+    global _pw, _browser, _context, _page, _browser_type
 
     try:
-        log(f"    [Amazon] Launching Playwright (stealth={HAS_STEALTH})...")
+        log(f"    [Amazon] Launching system Chrome (headed mode, Xvfb)...")
         _pw = sync_playwright().start()
+
         _browser = _pw.chromium.launch(
-            headless=True,
+            headless=False,      # HEADED mode — Xvfb provides display
+            channel="chrome",    # Use system Chrome, not bundled Chromium
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-infobars",
                 "--window-size=1920,1080",
+                "--start-maximized",
                 "--lang=en-GB",
             ]
         )
-        _context = _browser.new_context(
-            user_agent=USER_AGENT,
-            viewport={"width": 1920, "height": 1080},
-            locale="en-GB",
-            timezone_id="Europe/London",
-            screen={"width": 1920, "height": 1080},
-            color_scheme="light",
+        _browser_type = "chrome"
+        return True
+
+    except Exception as e:
+        log(f"    [Amazon] Chrome headed launch failed: {type(e).__name__}: {e}")
+        # Clean up partial state
+        try:
+            if _browser: _browser.close()
+        except: pass
+        _browser = None
+
+        # Try headed Chromium (bundled) as fallback
+        try:
+            log(f"    [Amazon] Trying bundled Chromium (headed)...")
+            _browser = _pw.chromium.launch(
+                headless=False,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--window-size=1920,1080",
+                    "--lang=en-GB",
+                ]
+            )
+            _browser_type = "chromium"
+            return True
+        except Exception as e2:
+            log(f"    [Amazon] Chromium headed also failed: {e2}")
+            return False
+
+
+def _try_firefox(log):
+    """Strategy 2: Firefox — completely different fingerprint."""
+    global _pw, _browser, _context, _page, _browser_type
+
+    try:
+        if not _pw:
+            _pw = sync_playwright().start()
+
+        log(f"    [Amazon] Trying Firefox (headed)...")
+        _browser = _pw.firefox.launch(
+            headless=False,
+            args=["--width=1920", "--height=1080"]
         )
+        _browser_type = "firefox"
+        return True
 
-        _page = _context.new_page()
+    except Exception as e:
+        log(f"    [Amazon] Firefox launch failed: {e}")
+        return False
 
-        # Apply stealth patches
+
+def _setup_context_and_navigate(log):
+    """Create browser context, apply stealth, navigate to homepage."""
+    global _context, _page
+
+    context_opts = {
+        "viewport": {"width": 1920, "height": 1080},
+        "locale": "en-GB",
+        "timezone_id": "Europe/London",
+        "geolocation": UK_GEO,
+        "permissions": ["geolocation"],
+        "screen": {"width": 1920, "height": 1080},
+        "color_scheme": "light",
+    }
+    # Only set user_agent for Chromium (Firefox has its own realistic one)
+    if _browser_type != "firefox":
+        context_opts["user_agent"] = USER_AGENT
+
+    _context = _browser.new_context(**context_opts)
+    _page = _context.new_page()
+
+    # Apply stealth patches (Chromium only — Firefox doesn't need them)
+    if _browser_type != "firefox":
         if HAS_STEALTH:
             stealth_sync(_page)
-            log(f"    [Amazon] Stealth patches applied")
+            log(f"    [Amazon] playwright-stealth patches applied")
         else:
             _page.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
@@ -113,127 +210,139 @@ def _init_playwright(log):
                 Object.defineProperty(navigator, 'languages', {
                     get: () => ['en-GB', 'en-US', 'en']
                 });
-                window.chrome = { runtime: {} };
-                const originalQuery = window.navigator.permissions.query;
-                window.navigator.permissions.query = (parameters) =>
-                    parameters.name === 'notifications'
-                        ? Promise.resolve({ state: Notification.permission })
-                        : originalQuery(parameters);
+                window.chrome = { runtime: {}, loadTimes: function(){}, csi: function(){} };
             """)
             log(f"    [Amazon] Manual stealth patches applied")
 
-        # Navigate to Amazon homepage
-        log(f"    [Amazon] Navigating to homepage...")
-        _page.goto(AMAZON_HOME, wait_until="domcontentloaded", timeout=30000)
-        time.sleep(2)
+    # Navigate to homepage
+    log(f"    [Amazon] Navigating to homepage ({_browser_type})...")
+    _page.goto(AMAZON_HOME, wait_until="domcontentloaded", timeout=30000)
+    time.sleep(2)
 
-        # Accept cookie consent (GDPR banner)
-        _accept_cookies(log)
-
-        # Set UK delivery location (critical for UK pricing/availability)
-        _set_uk_location(log)
-
-        # Check we're not CAPTCHA'd on homepage
-        title = _page.title() or ""
-        if "robot" in title.lower() or "captcha" in title.lower():
-            log(f"    [Amazon] !! Homepage CAPTCHA detected")
-            _init_failed = True
-            _cleanup()
-            return False
-
-        log(f"    [Amazon] Homepage loaded: '{title[:50]}'")
-        _initialized = True
-        return True
-
-    except Exception as e:
-        log(f"    [Amazon] Playwright init failed: {type(e).__name__}: {e}")
-        _init_failed = True
-        _cleanup()
+    # Check for CAPTCHA on homepage
+    title = _page.title() or ""
+    if len(title) < 15 or "robot" in title.lower():
+        log(f"    [Amazon] Homepage blocked: '{title}'")
         return False
 
+    log(f"    [Amazon] Homepage loaded: '{title[:55]}'")
+
+    # Accept cookie consent
+    _accept_cookies(log)
+
+    # Human interaction to build trust
+    _human_interact(_page, log)
+
+    # Set UK delivery location
+    _set_uk_location(log)
+
+    return True
+
+
+# ── Init orchestrator ──────────────────────────────────────────────────────
+
+def _init_playwright(log):
+    """Try browsers in order: Chrome headed → Chromium headed → Firefox."""
+    global _initialized, _init_failed
+
+    if not HAS_PLAYWRIGHT:
+        log(f"    [Amazon] Playwright not installed")
+        _init_failed = True
+        return False
+
+    # Strategy 1: Chrome/Chromium headed
+    if _try_chrome_headed(log):
+        if _setup_context_and_navigate(log):
+            _initialized = True
+            return True
+        # Homepage blocked with Chrome — try Firefox
+        _cleanup()
+
+    # Strategy 2: Firefox
+    if _try_firefox(log):
+        if _setup_context_and_navigate(log):
+            _initialized = True
+            return True
+        _cleanup()
+
+    # Strategy 3: Last resort — headless Chromium
+    try:
+        log(f"    [Amazon] Last resort: headless Chromium...")
+        if not _pw:
+            _pw = sync_playwright().start()
+        global _browser, _browser_type
+        _browser = _pw.chromium.launch(
+            headless=True,
+            args=["--disable-blink-features=AutomationControlled",
+                  "--no-sandbox", "--disable-dev-shm-usage"]
+        )
+        _browser_type = "chromium-headless"
+        if _setup_context_and_navigate(log):
+            _initialized = True
+            return True
+    except Exception as e:
+        log(f"    [Amazon] Headless fallback failed: {e}")
+
+    _init_failed = True
+    _cleanup()
+    return False
+
+
+# ── Cookie consent & location ──────────────────────────────────────────────
 
 def _accept_cookies(log):
-    """Click the Amazon cookie consent button if present."""
     try:
-        for selector in [
-            "#sp-cc-accept",
-            "[data-action='sp-cc'][data-action-type='ACCEPT_ALL']",
-            "input[name='accept']",
-            "#a-autoid-0-announce",
-        ]:
+        for sel in ["#sp-cc-accept",
+                     "[data-action='sp-cc'][data-action-type='ACCEPT_ALL']",
+                     "input[name='accept']"]:
             try:
-                btn = _page.locator(selector)
+                btn = _page.locator(sel)
                 if btn.count() > 0 and btn.first.is_visible():
                     btn.first.click()
-                    log(f"    [Amazon] Cookie consent accepted ({selector})")
+                    log(f"    [Amazon] Cookie consent accepted")
                     time.sleep(1)
                     return
-            except Exception:
-                continue
-        log(f"    [Amazon] No cookie consent banner found (may be pre-accepted)")
-    except Exception as e:
-        log(f"    [Amazon] Cookie consent handling: {e}")
+            except: continue
+    except: pass
 
 
 def _set_uk_location(log):
-    """Set delivery location to a UK postcode so Amazon shows UK pricing."""
     try:
-        # Click the "Deliver to" link to open location popup
-        deliver_link = _page.locator("#glow-ingress-block, #nav-global-location-popover-link")
-        if deliver_link.count() == 0 or not deliver_link.first.is_visible():
-            log(f"    [Amazon] No delivery location widget found")
+        deliver = _page.locator("#glow-ingress-block, #nav-global-location-popover-link")
+        if deliver.count() == 0 or not deliver.first.is_visible():
+            log(f"    [Amazon] No delivery widget found")
             return
 
-        deliver_link.first.click()
+        deliver.first.click()
         time.sleep(1.5)
 
-        # Enter UK postcode in the popup input
-        postcode_input = _page.locator("#GLUXZipUpdateInput")
-        if postcode_input.count() > 0 and postcode_input.first.is_visible():
-            postcode_input.first.fill("")
-            postcode_input.first.type("SW1A 1AA", delay=50)  # Westminster
+        inp = _page.locator("#GLUXZipUpdateInput")
+        if inp.count() > 0 and inp.first.is_visible():
+            inp.first.fill("")
+            inp.first.type("SW1A 1AA", delay=80)
             time.sleep(0.5)
 
-            # Click apply/submit button
-            for btn_selector in [
-                "#GLUXZipUpdate",
-                "[data-action='GLUXPostalInputAction']",
-                "#GLUXZipUpdate input[type='submit']",
-            ]:
+            for sel in ["#GLUXZipUpdate",
+                        "[data-action='GLUXPostalInputAction']"]:
                 try:
-                    btn = _page.locator(btn_selector)
+                    btn = _page.locator(sel)
                     if btn.count() > 0 and btn.first.is_visible():
                         btn.first.click()
-                        log(f"    [Amazon] UK postcode submitted (SW1A 1AA)")
+                        log(f"    [Amazon] UK postcode set (SW1A 1AA)")
                         time.sleep(2)
-
-                        # Close any remaining popup
                         try:
-                            close_btn = _page.locator("#GLUXConfirmClose, .a-popover-footer button")
-                            if close_btn.count() > 0 and close_btn.first.is_visible():
-                                close_btn.first.click()
-                                time.sleep(1)
-                        except Exception:
-                            pass
-
-                        # Verify location was set
-                        try:
-                            location_text = _page.locator("#glow-ingress-line2").text_content()
-                            if location_text:
-                                log(f"    [Amazon] Delivery location: {location_text.strip()}")
-                        except Exception:
-                            pass
+                            close = _page.locator("#GLUXConfirmClose, .a-popover-footer button")
+                            if close.count() > 0 and close.first.is_visible():
+                                close.first.click()
+                                time.sleep(0.5)
+                        except: pass
                         return
-                except Exception:
-                    continue
-
-            log(f"    [Amazon] Could not find submit button for postcode")
-        else:
-            log(f"    [Amazon] Postcode input not found in popup")
-
+                except: continue
     except Exception as e:
-        log(f"    [Amazon] Location setting: {type(e).__name__}: {e}")
+        log(f"    [Amazon] Location: {type(e).__name__}: {e}")
 
+
+# ── Cleanup ────────────────────────────────────────────────────────────────
 
 def _cleanup():
     global _pw, _browser, _context, _page
@@ -247,66 +356,48 @@ def _cleanup():
     _page = _context = _browser = _pw = None
 
 
-# ── Product page fetching ──────────────────────────────────────────────────
+# ── Page fetching ──────────────────────────────────────────────────────────
 
 def _is_captcha(page):
-    """Check if the current page is a CAPTCHA challenge."""
     try:
         title = (page.title() or "").lower()
         url = page.url.lower()
-        html_start = page.content()[:3000].lower()
-        return (
-            "robot" in title or
-            "captcha" in title or
-            "/errors/validateCaptcha" in url or
-            "captcha" in html_start[:2000] or
-            "type the characters" in html_start
-        )
+        html = page.content()[:3000].lower()
+        return ("robot" in title or "captcha" in title or
+                "validatecaptcha" in url or
+                "captcha" in html[:2000] or
+                "type the characters" in html)
     except:
         return False
 
 
 def _wait_for_price(page, log, timeout=8):
-    """Wait for Amazon price elements to render (they're JS-loaded)."""
     for i in range(timeout):
         try:
-            # Check for the main price element
-            price_el = page.locator("span.a-price-whole").first
-            if price_el.is_visible():
+            if page.locator("span.a-price-whole").first.is_visible():
                 return True
-        except:
-            pass
-
+        except: pass
         try:
-            # Check for "Currently unavailable" or "Out of stock"
             content = page.content()
-            if "currently unavailable" in content.lower() or "out of stock" in content.lower():
-                log(f"    [Amazon] Product unavailable/out of stock")
-                return True  # page loaded, just no price
-        except:
-            pass
-
+            if "currently unavailable" in content.lower():
+                return True
+        except: pass
         time.sleep(1)
-
     return False
 
 
 def fetch_amazon_page(url, log, max_retries=1):
     """
-    Fetch an Amazon product page using Playwright.
-
+    Fetch an Amazon product page.
     Returns (status_code, html_text) or (None, error_message).
-    The HTML will have JS-rendered content (prices, dynamic elements).
     """
     global _last_nav_time
 
-    # ── Strategy 1: Playwright ─────────────────────────────────────
     if not _init_failed:
         if not _initialized:
             _init_playwright(log)
 
         if _initialized and _page:
-            # Courtesy delay
             elapsed = time.time() - _last_nav_time
             if _last_nav_time > 0 and elapsed < COURTESY_DELAY:
                 time.sleep(COURTESY_DELAY - elapsed)
@@ -314,44 +405,33 @@ def fetch_amazon_page(url, log, max_retries=1):
             for attempt in range(max_retries + 1):
                 try:
                     log(f"    [Amazon] Navigating to product page"
-                        + (f" (attempt {attempt+1})" if attempt > 0 else "") + "...")
+                        + (f" (attempt {attempt+1})" if attempt > 0 else "")
+                        + f" [{_browser_type}]...")
 
                     resp = _page.goto(url, wait_until="domcontentloaded", timeout=25000)
                     _last_nav_time = time.time()
-
-                    # Check for CAPTCHA
                     time.sleep(1)
+
                     if _is_captcha(_page):
                         log(f"    [Amazon] CAPTCHA detected")
                         if attempt < max_retries:
                             time.sleep(5)
                             continue
-                        else:
-                            log(f"    [Amazon] !! CAPTCHA persisted after {max_retries+1} attempts")
-                            break
+                        break
 
-                    # Wait for price to render
                     _wait_for_price(_page, log)
-
                     html = _page.content()
                     title = _page.title() or ""
 
                     if html and len(html) > 20000 and "Amazon" in title:
-                        log(f"    [Amazon] OK: {len(html)} bytes, title: '{title[:60]}'")
+                        log(f"    [Amazon] OK: {len(html)} bytes, title: '{title[:55]}'")
                         return 200, html
 
-                    log(f"    [Amazon] Unexpected page state (HTTP {resp.status if resp else '?'}, "
-                        f"{len(html) if html else 0} bytes)")
-
                 except Exception as e:
-                    log(f"    [Amazon] Navigation error: {type(e).__name__}: {e}")
+                    log(f"    [Amazon] Error: {type(e).__name__}: {e}")
                     if attempt < max_retries:
                         time.sleep(3)
 
-    # ── Strategy 2: plain requests fallback (existing behavior) ────
-    # Don't implement here — let the scraper's own extract_amazon handle it
-    # This means if Playwright fails, the scraper falls back to its existing
-    # requests-based code and then to KNOWN values
     return None, "Playwright failed or unavailable"
 
 
