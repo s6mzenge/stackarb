@@ -40,7 +40,12 @@ try:
     from playwright_stealth import stealth_sync
     HAS_STEALTH = True
 except ImportError:
-    HAS_STEALTH = False
+    try:
+        from playwright_stealth import Stealth
+        stealth_sync = lambda page: Stealth().apply_stealth_sync(page)
+        HAS_STEALTH = True
+    except ImportError:
+        HAS_STEALTH = False
 
 
 # ── Config ─────────────────────────────────────────────────────────────────
