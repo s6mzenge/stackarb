@@ -426,6 +426,168 @@ def extract_capsule_count(variant_title, product_title, body_text, log):
     log(f"    !! Could not extract capsule count")
     return None
 
+# ── DOMAIN-SPECIFIC EXTRACTORS ─────────────────────────────────────────────
+
+def _variant_pack_multiplier(variant_title):
+    """Detect pack variants like '3 Pack', 'Three Pack', '6 Pack'.
+    Returns the multiplier (e.g. 3) or None if not a pack variant."""
+    _PACK_WORDS = {
+        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    }
+    m = re.search(r"(\d+)\s*[-\s]*packs?\b", variant_title, re.I)
+    if m:
+        return int(m.group(1))
+    for word, num in _PACK_WORDS.items():
+        if re.search(rf"\b{word}\s*[-\s]*packs?\b", variant_title, re.I):
+            return num
+    return None
+
+
+def extract_shopify(product, session, log):
+    url = product["url"]
+
+    log(f"    Fetching Shopify JSON...")
+    sj = fetch_shopify_json(url, session)
+    if not sj or "product" not in sj:
+        log(f"    !! Shopify JSON not available")
+        return None
+
+    pj = sj["product"]
+    title = pj.get("title", "")
+    body = re.sub(r"<[^>]+>", " ", pj.get("body_html", ""))
+    variants = pj.get("variants", [])
+
+    log(f"    Title: {title}")
+    log(f"    Variants ({len(variants)}):")
+    for v in variants:
+        log(f"      {v.get('title','?'):35s}  GBP {v.get('price','?'):>8s}  SKU: {v.get('sku','?')}")
+
+    # Fetch page HTML once (shared across variants) for dosage info
+    log(f"    Fetching page HTML for nutritional info...")
+    status, html = fetch_page(url, session)
+    page_text = ""
+    if status == 200:
+        soup = BeautifulSoup(html, "lxml")
+        page_text = soup.get_text(" ", strip=True)
+        og = soup.find("meta", property="og:description")
+        if og and og.get("content"):
+            page_text = og["content"] + " ||| " + page_text
+
+    combined = f"{body} ||| {page_text}"
+    dosage = extract_epa_dosage(title, body, combined, log)
+
+    # ── Build a result for EVERY variant (size/pack) ───────────────
+    # Filter out variants whose title is just "Default Title" or empty
+    # when there's only one variant — treat as a single product.
+    is_single = (len(variants) <= 1 or
+                 all((v.get("title") or "").strip().lower() in
+                     ("", "default", "default title") for v in variants))
+
+    if is_single:
+        chosen = variants[0] if variants else None
+        price = float(chosen["price"]) if chosen else None
+        amount = extract_capsule_count(
+            chosen.get("title", "") if chosen else "", title, body, log)
+        if amount is None and page_text:
+            log(f"    Retrying capsule count from page HTML...")
+            amount = extract_capsule_count("", title, page_text, log)
+        return {"price": price, "amount": amount, "dosage": dosage}
+
+    # Determine base capsule count for pack-multiplier variants
+    base_count = extract_capsule_count("", title, body, log)
+    if base_count is None and page_text:
+        base_count = extract_capsule_count("", title, page_text, log)
+    log(f"    Base capsule count (from product): {base_count}")
+
+    # Multiple real variants → expand each into its own result
+    results = []
+    for v in variants:
+        vt = (v.get("title") or "").strip()
+        vprice = float(v["price"]) if v.get("price") else None
+        log(f"    -- Variant '{vt}' --")
+        log(f"       Price: GBP {vprice}")
+
+        # Check for pack variant (e.g. "Three Pack", "6 Pack")
+        pack_mult = _variant_pack_multiplier(vt)
+        if pack_mult and base_count:
+            vamount = pack_mult * base_count
+            log(f"       Pack variant: {pack_mult} x {base_count} = {vamount}")
+        else:
+            vamount = extract_capsule_count(vt, title, body, log)
+            if vamount is None and page_text:
+                vamount = extract_capsule_count(vt, title, page_text, log)
+
+        log(f"       Amount: {vamount}")
+        results.append({
+            "price": vprice,
+            "amount": vamount,
+            "dosage": dosage,
+            "variant_label": vt,
+        })
+
+    return results if results else None
+
+
+def extract_jsonld(product, session, log):
+    url = product["url"]
+    log(f"    Fetching page HTML...")
+    status, html = fetch_page(url, session)
+    if status != 200:
+        log(f"    !! HTTP {status}")
+        return None
+
+    soup = BeautifulSoup(html, "lxml")
+    page_text = soup.get_text(" ", strip=True)
+
+    price = None
+    name = ""
+    for tag in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(tag.string)
+            items = [data]
+            if isinstance(data, dict) and "@graph" in data:
+                items = data["@graph"] if isinstance(data["@graph"], list) else [data["@graph"]]
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                if "Product" in str(item.get("@type", "")):
+                    name = item.get("name", "")
+                    log(f"    JSON-LD Product: {name}")
+                    offers = item.get("offers", {})
+                    if isinstance(offers, dict) and offers.get("price"):
+                        price = float(offers["price"])
+                    elif isinstance(offers, list):
+                        for o in offers:
+                            p = o.get("price")
+                            avail = o.get("availability", "")
+                            log(f"      Offer: GBP {p}  avail={avail}")
+                            if p and "InStock" in avail:
+                                price = float(p)
+                    if not price:
+                        off = item.get("offers", {})
+                        if isinstance(off, dict):
+                            p = off.get("lowPrice") or off.get("price")
+                            if p:
+                                price = float(p)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    if not price:
+        for meta_name in ["product:price:amount", "og:price:amount"]:
+            tag = soup.find("meta", property=meta_name)
+            if tag and tag.get("content"):
+                try:
+                    price = float(tag["content"])
+                    log(f"    Meta price ({meta_name}): GBP {price}")
+                except ValueError:
+                    pass
+
+    log(f"    -> Price: GBP {price}")
+    amount = extract_capsule_count("", name, page_text, log)
+    dosage = extract_epa_dosage(name, page_text, page_text, log)
+    return {"price": price, "amount": amount, "dosage": dosage}
+
 def extract_meta_jsonld(product, session, log):
     return extract_jsonld(product, session, log)
 
