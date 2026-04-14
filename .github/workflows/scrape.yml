@@ -9,7 +9,7 @@ permissions:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repo
@@ -23,16 +23,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r scraper/requirements.txt
 
-      - name: Install Playwright browsers
-        run: |
-          playwright install chromium --with-deps
-          playwright install firefox
+      - name: Install Playwright browser
+        run: playwright install chromium --with-deps
 
-      - name: Install Xvfb for headed browser mode
-        run: sudo apt-get install -y xvfb
-
-      - name: Run scrapers (headed mode via virtual display)
-        run: xvfb-run --auto-servernum python scraper/run_all.py
+      - name: Run scrapers
+        run: python scraper/run_all.py
 
       - name: Commit updated data
         run: |
