@@ -370,10 +370,38 @@ def _shopify_html_fallback(url, session, log, dosage_extractor):
     log(f"    Trying HTML fallback ({clean_url})...")
     status, html = fetch_page(clean_url, session)
     if status != 200:
-        log(f"    !! HTML fallback failed: HTTP {status}")
+        log(f"    !! Plain requests failed: HTTP {status}")
+        status, html = None, None
+
+    # Check if we got a real product page (not a homepage redirect)
+    soup = None
+    if status == 200:
+        soup = BeautifulSoup(html, "lxml")
+        has_product = bool(soup.find("script", type="application/ld+json"))
+        page_title = (soup.title.string or "").strip() if soup.title else ""
+        if not has_product and "/products/" not in page_title.lower():
+            log(f"    !! Plain requests returned non-product page: {page_title[:80]}")
+            soup = None  # trigger cloudscraper retry
+
+    # Retry with cloudscraper if plain requests was blocked/redirected
+    if soup is None and HAS_CLOUDSCRAPER:
+        log(f"    Retrying with cloudscraper...")
+        try:
+            cs = cloudscraper.create_scraper(
+                browser={"browser": "chrome", "platform": "windows", "desktop": True})
+            resp = cs.get(clean_url, timeout=30)
+            if resp.status_code == 200:
+                html = resp.text
+                status = 200
+                soup = BeautifulSoup(html, "lxml")
+                log(f"    cloudscraper OK: {len(html)} bytes")
+        except Exception as e:
+            log(f"    !! cloudscraper failed: {e}")
+
+    if soup is None:
+        log(f"    !! HTML fallback failed — could not fetch product page")
         return None
 
-    soup = BeautifulSoup(html, "lxml")
     page_text = soup.get_text(" ", strip=True)
 
     title_tag = soup.find("h1")
