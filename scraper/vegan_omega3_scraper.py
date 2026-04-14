@@ -75,7 +75,7 @@ PRODUCTS = [
      "strategy": "v_jsonld", "variant_hint": None},
 
     {"brand": "Time Health (Vegan Omega-3)",
-     "url": "https://timehealth.co.uk/products/vegan-omega3?selling_plan=690644287817&variant=52860775825737",
+     "url": "https://timehealth.co.uk/products/vegan-omega3",
      "strategy": "v_shopify", "variant_hint": "Default"},
 ]
 
@@ -395,8 +395,10 @@ def _variant_pack_multiplier(variant_title):
 
 def _shopify_html_fallback(url, session, log, dosage_extractor):
     """Fallback when Shopify JSON API is blocked — scrape HTML directly."""
-    log(f"    Trying HTML fallback...")
-    status, html = fetch_page(url, session)
+    # Strip query params (selling_plan, variant IDs can cause redirects)
+    clean_url = url.split('?')[0]
+    log(f"    Trying HTML fallback ({clean_url})...")
+    status, html = fetch_page(clean_url, session)
     if status != 200:
         log(f"    !! HTML fallback failed: HTTP {status}")
         return None
