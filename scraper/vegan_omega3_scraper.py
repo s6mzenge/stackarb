@@ -7,7 +7,7 @@ Adapted from vegan_omega3_test_scraper v4.
 Tracks vegan omega-3 products (algal oil) for daily EPA cost comparison.
 
 Strategies:
-  - shopify:     WeightWorld, Time Health (Shopify JSON + page HTML)
+  - shopify:     WeightWorld (Shopify JSON + page HTML)
   - magento:     Cytoplan (window.digitalData JS object)
   - vegetology:  Vegetology Opti3 (Craft CMS + Sprig v2 dynamic variants)
   - jsonld:      Troo Healthcare, Nature's Best (JSON-LD / meta / HTML)
@@ -50,7 +50,6 @@ KNOWN = {
     "WeightWorld (Vegan Omega-3)":       (120, 100, 19.99),
     "Vegetology (Opti3)":                (60,  100, 21.95),
     "Nature's Best (Vegan Omega-3)":     (60,  150, 17.95),
-    "Time Health (Vegan Omega-3)":       (120, 165, 22.99),
 }
 
 PRODUCTS = [
@@ -73,10 +72,6 @@ PRODUCTS = [
     {"brand": "Nature's Best (Vegan Omega-3)",
      "url": "https://www.naturesbest.co.uk/vegan-omega-3s/vegan-omega-3-capsules-with-dha-and-epa/",
      "strategy": "v_jsonld", "variant_hint": None},
-
-    {"brand": "Time Health (Vegan Omega-3)",
-     "url": "https://timehealth.co.uk/products/vegan-omega3",
-     "strategy": "v_shopify", "variant_hint": "Default"},
 ]
 
 
