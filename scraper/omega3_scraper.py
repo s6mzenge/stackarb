@@ -62,6 +62,12 @@ try:
 except ImportError:
     HAS_CURL_CFFI = False
 
+try:
+    from iherb_session import fetch_iherb_page
+    HAS_IHERB_SESSION = True
+except ImportError:
+    HAS_IHERB_SESSION = False
+
 OUTPUT_DIR  = r"C:\Users\morit\Documents\Sonstiges\Dokumente"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "omega3_scrape_results.txt")
 
@@ -688,46 +694,22 @@ def extract_meta_jsonld(product, session, log):
 
 
 def extract_iherb(product, session, log):
-    """iHerb — uses cloudscraper to bypass Cloudflare protection."""
+    """iHerb — uses shared persistent session (curl_cffi → cloudscraper)."""
     url = product["url"]
     brand = product["brand"]
 
-    if not HAS_CLOUDSCRAPER:
-        log(f"    !! cloudscraper not installed — falling back to spreadsheet")
-        log(f"    !! Install with: pip install cloudscraper")
+    if not HAS_IHERB_SESSION:
+        log(f"    !! iherb_session module not available — falling back to spreadsheet")
         if brand in KNOWN:
             amt, dos, pri = KNOWN[brand]
             return {"price": pri, "amount": amt, "dosage": dos}
         return None
 
-    log(f"    Fetching iHerb page via cloudscraper...")
-    try:
-        scraper = cloudscraper.create_scraper(
-            browser={"browser": "chrome", "platform": "windows", "desktop": True},
-        )
-        resp = scraper.get(url, timeout=30)
-        status = resp.status_code
-        html = resp.text
-    except Exception as e:
-        log(f"    !! cloudscraper failed: {e}")
-        log(f"    Falling back to spreadsheet values")
-        if brand in KNOWN:
-            amt, dos, pri = KNOWN[brand]
-            return {"price": pri, "amount": amt, "dosage": dos}
-        return None
+    log(f"    Fetching iHerb page via shared session...")
+    status, html = fetch_iherb_page(url, log)
 
-    if status != 200:
-        log(f"    !! HTTP {status} — falling back to spreadsheet")
-        if brand in KNOWN:
-            amt, dos, pri = KNOWN[brand]
-            return {"price": pri, "amount": amt, "dosage": dos}
-        return None
-
-    # Check for Cloudflare challenge page
-    lower = html[:5000].lower()
-    if any(kw in lower for kw in ["captcha", "challenge", "cf-browser-verification",
-                                    "_cf_chl", "just a moment"]):
-        log(f"    !! Cloudflare challenge not bypassed — falling back to spreadsheet")
+    if status is None or status != 200 or not html:
+        log(f"    !! iHerb fetch failed — falling back to spreadsheet")
         if brand in KNOWN:
             amt, dos, pri = KNOWN[brand]
             return {"price": pri, "amount": amt, "dosage": dos}
