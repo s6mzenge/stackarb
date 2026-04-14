@@ -16,7 +16,6 @@ Key v2 changes:
 
 Strategies:
   - shopify:  WeightWorld own site
-  - amazon:   Most products (7)
   - dolphin:  Dolphin Fitness (Lamberts, Swanson) — JSON-LD + meta scraping
   - iherb:    iHerb products (5) — via cloudscraper (Cloudflare bypass)
 
@@ -41,12 +40,6 @@ try:
 except ImportError:
     HAS_IHERB_SESSION = False
 
-try:
-    from amazon_session import fetch_amazon_page
-    HAS_AMAZON_SESSION = True
-except ImportError:
-    HAS_AMAZON_SESSION = False
-
 OUTPUT_DIR  = r"C:\Users\morit\Documents\Sonstiges\Dokumente"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "astaxanthin_scrape_results.txt")
 
@@ -65,14 +58,7 @@ HEADERS = {
 # Spreadsheet reference values: (amount, dosage_mg, price_gbp)
 KNOWN = {
     "WeightWorld":                (240, 18, 18.49),
-    "Brandini Pure":              (270, 18, 23.90),
-    "Nu U Nutrition":             (180, 12, 19.92),
-    "WeightWorld (Amazon 8mg)":   (240,  8, 18.99),
-    "Acentialabs":                (120, 12, 14.99),
-    "Rapsdayci":                  ( 60, 24, 15.99),
-    "Alpha Zero One":             ( 90,  8,  9.99),
     "Micro Ingredients":          (120, 12, 30.48),
-    "Time Health":                (120,  7, 21.99),
     "Nutricost (12mg)":           ( 60, 12, 22.62),
     "California Gold Nutrition":  ( 30, 12, 11.45),
     "Nutricost (4mg)":            (120,  4, 16.90),
@@ -86,37 +72,9 @@ PRODUCTS = [
      "url": "https://www.weightworld.uk/products/astaxanthin-softgels",
      "strategy": "shopify", "variant_hint": "Default"},
 
-    {"brand": "Brandini Pure",
-     "url": "https://www.amazon.co.uk/Astaxanthin-antioxidant-Haematococcus-Astaxantine-Supplement/dp/B0D9M8VTB1",
-     "strategy": "amazon", "variant_hint": None},
-
-    {"brand": "Nu U Nutrition",
-     "url": "https://www.amazon.co.uk/dp/B01M148OZI",
-     "strategy": "amazon", "variant_hint": None},
-
-    {"brand": "WeightWorld (Amazon 8mg)",
-     "url": "https://www.amazon.co.uk/WeightWorld-Natural-Astaxanthin-8mg-Haematococcus/dp/B0G43MTXZ5",
-     "strategy": "amazon", "variant_hint": None},
-
-    {"brand": "Acentialabs",
-     "url": "https://www.amazon.co.uk/Astaxanthin-Supplements-12mg-Antioxidant-Gluten-Free/dp/B0FM7XPS98",
-     "strategy": "amazon", "variant_hint": None},
-
-    {"brand": "Rapsdayci",
-     "url": "https://www.amazon.co.uk/Liposomal-Astaxanthin-Supplement-Antioxidant-Absorption/dp/B0C46F1YW1",
-     "strategy": "amazon", "variant_hint": None},
-
-    {"brand": "Alpha Zero One",
-     "url": "https://www.amazon.co.uk/Wild-Algae-Astaxanthin-Softgel-Antioxidant-Bioavailability/dp/B098BQSCJ7",
-     "strategy": "amazon", "variant_hint": None},
-
     {"brand": "Micro Ingredients",
      "url": "https://uk.iherb.com/pr/micro-ingredients-astaxanthin-12-mg-120-softgels/148176",
      "strategy": "iherb", "variant_hint": None},
-
-    {"brand": "Time Health",
-     "url": "https://www.amazon.co.uk/Astaxanthin-Antioxidant-Haematococcus-Bioavailable-Manufactured/dp/B019UH2KJC",
-     "strategy": "amazon", "variant_hint": None},
 
     {"brand": "Nutricost (12mg)",
      "url": "https://uk.iherb.com/pr/nutricost-astaxanthin-12-mg-60-softgels/139393",
@@ -403,202 +361,6 @@ def extract_capsule_count(variant_title, product_title, body_text, log):
     log(f"    !! Could not extract capsule count")
     return None
 
-
-def extract_amazon_count(title, soup, log):
-    # Allow adjectives: "270 High Strength Capsules", "180 High Strength Softgel Capsules"
-    m = re.search(r"(\d+)[\s\-]+(?:(?:high|extra|super|full|pure)[\s\-]+)?(?:strength\s+)?(?:soft\s*gel\s+)?(?:capsules?|softgels?|tablets?|soft\s*gels?|caps)\b", title, re.I)
-    if not m:
-        m = re.search(r"(\d+)\s*(?:capsules|softgels|tablets|soft\s*gels|caps)\b", title, re.I)
-    if m and 10 <= int(m.group(1)) <= 2000:
-        log(f"    Count from Amazon title: {m.group(1)}")
-        return int(m.group(1))
-    m = re.search(r"(\d+)\s*count\b", title, re.I)
-    if m and int(m.group(1)) >= 10:
-        log(f"    Count from Amazon title (count): {m.group(1)}")
-        return int(m.group(1))
-    for det_id in ["feature-bullets", "detailBullets_feature_div",
-                    "productDetails_detailBullets_sections1",
-                    "productDetails_techSpec_section_1"]:
-        det = soup.find(attrs={"id": det_id})
-        if det:
-            text = det.get_text(" ", strip=True)
-            m = re.search(r"(\d+)\s*(?:count|capsules|softgels|tablets)\b", text, re.I)
-            if m and int(m.group(1)) >= 10:
-                log(f"    Count from Amazon section '{det_id}': {m.group(1)}")
-                return int(m.group(1))
-    page_text = soup.get_text(" ", strip=True)
-    m = re.search(r"(?:pack\s+of|contains)\s+(\d+)\s*(?:capsules|softgels|tablets)", page_text, re.I)
-    if m and int(m.group(1)) >= 10:
-        log(f"    Count from Amazon page text: {m.group(1)}")
-        return int(m.group(1))
-    log(f"    !! Could not extract count from Amazon page")
-    return None
-
-
-# ── DOMAIN-SPECIFIC EXTRACTORS ─────────────────────────────────────────────
-
-def _variant_pack_multiplier(variant_title):
-    """Detect pack variants like '3 Pack', 'Three Pack', '6 Pack'."""
-    _PACK_WORDS = {
-        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-    }
-    m = re.search(r"(\d+)\s*[-\s]*packs?\b", variant_title, re.I)
-    if m:
-        return int(m.group(1))
-    for word, num in _PACK_WORDS.items():
-        if re.search(rf"\b{word}\s*[-\s]*packs?\b", variant_title, re.I):
-            return num
-    return None
-
-
-def extract_shopify(product, session, log):
-    url = product["url"]
-
-    log(f"    Fetching Shopify JSON...")
-    sj = fetch_shopify_json(url, session)
-    if not sj or "product" not in sj:
-        log(f"    !! Shopify JSON not available")
-        return None
-
-    pj = sj["product"]
-    title = pj.get("title", "")
-    body = re.sub(r"<[^>]+>", " ", pj.get("body_html", ""))
-    variants = pj.get("variants", [])
-
-    log(f"    Title: {title}")
-    log(f"    Variants ({len(variants)}):")
-    for v in variants:
-        log(f"      {v.get('title','?'):35s}  GBP {v.get('price','?'):>8s}  SKU: {v.get('sku','?')}")
-
-    # Fetch page HTML once (shared across variants) for dosage info
-    log(f"    Fetching page HTML for nutritional info...")
-    status, html = fetch_page(url, session)
-    page_text = ""
-    if status == 200:
-        soup = BeautifulSoup(html, "lxml")
-        page_text = soup.get_text(" ", strip=True)
-        og = soup.find("meta", property="og:description")
-        if og and og.get("content"):
-            page_text = og["content"] + " ||| " + page_text
-
-    combined = f"{body} ||| {page_text}"
-    dosage = extract_astaxanthin_dosage(title, body, combined, log)
-
-    # ── Build a result for EVERY variant (size/pack) ───────────────
-    is_single = (len(variants) <= 1 or
-                 all((v.get("title") or "").strip().lower() in
-                     ("", "default", "default title") for v in variants))
-
-    if is_single:
-        chosen = variants[0] if variants else None
-        price = float(chosen["price"]) if chosen else None
-        amount = extract_capsule_count(
-            chosen.get("title", "") if chosen else "", title, body, log)
-        return {"price": price, "amount": amount, "dosage": dosage}
-
-    # Determine base capsule count for pack-multiplier variants
-    base_count = extract_capsule_count("", title, body, log)
-    if base_count is None and page_text:
-        base_count = extract_capsule_count("", title, page_text, log)
-    log(f"    Base capsule count (from product): {base_count}")
-
-    results = []
-    for v in variants:
-        vt = (v.get("title") or "").strip()
-        vprice = float(v["price"]) if v.get("price") else None
-        log(f"    -- Variant '{vt}' --")
-        log(f"       Price: GBP {vprice}")
-
-        pack_mult = _variant_pack_multiplier(vt)
-        if pack_mult and base_count:
-            vamount = pack_mult * base_count
-            log(f"       Pack variant: {pack_mult} x {base_count} = {vamount}")
-        else:
-            vamount = extract_capsule_count(vt, title, body, log)
-            if vamount is None and page_text:
-                vamount = extract_capsule_count(vt, title, page_text, log)
-
-        log(f"       Amount: {vamount}")
-        results.append({
-            "price": vprice,
-            "amount": vamount,
-            "dosage": dosage,
-            "variant_label": vt,
-        })
-
-    return results if results else None
-
-
-def extract_amazon(product, session, log):
-    url = product["url"]
-    log(f"    Fetching Amazon page...")
-
-    # Try Playwright first (JS rendering + stealth)
-    html = None
-    if HAS_AMAZON_SESSION:
-        status, pw_html = fetch_amazon_page(url, log)
-        if status == 200 and pw_html and len(pw_html) > 20000:
-            html = pw_html
-
-    # Fallback to plain requests
-    if not html:
-        log(f"    Trying plain requests fallback...")
-        req_status, req_html = fetch_page(url, session)
-        if req_status == 200:
-            html = req_html
-
-    if not html:
-        log(f"    !! Could not fetch Amazon page")
-        return None
-
-    soup = BeautifulSoup(html, "lxml")
-    title = soup.title.string.strip() if soup.title and soup.title.string else ""
-    log(f"    Title: {title[:120]}")
-
-    # Check for CAPTCHA
-    if "captcha" in html.lower()[:3000] or "robot" in html.lower()[:3000]:
-        log(f"    !! CAPTCHA / bot detection triggered")
-        return None
-
-    price = None
-    whole_tag = soup.find("span", class_="a-price-whole")
-    frac_tag = soup.find("span", class_="a-price-fraction")
-    if whole_tag and frac_tag:
-        try:
-            whole = whole_tag.get_text(strip=True).rstrip(".")
-            frac = frac_tag.get_text(strip=True)
-            price = float(f"{whole}.{frac}")
-            log(f"    Price from a-price: GBP {price}")
-        except ValueError:
-            pass
-    if not price:
-        core = soup.find("div", id="corePrice_feature_div")
-        if core:
-            m = re.search(r"£(\d+\.\d{2})", core.get_text())
-            if m:
-                price = float(m.group(1))
-    log(f"    -> Price: GBP {price}")
-
-    amount = extract_amazon_count(title, soup, log)
-
-    # Restrict dosage search to product sections only
-    dosage_text = title
-    for section_id in ["productDescription", "feature-bullets", "aplus-v2",
-                        "aplus_feature_div", "productDescription_feature_div"]:
-        section = soup.find("div", id=section_id)
-        if section:
-            dosage_text += " ||| " + section.get_text(" ", strip=True)
-    for table in soup.find_all("table"):
-        text = table.get_text(" ", strip=True)
-        if re.search(r"astaxanthin|supplement\s*facts|nutritional", text, re.I):
-            dosage_text += " ||| " + text
-            break
-
-    dosage = extract_astaxanthin_dosage(title, dosage_text, dosage_text, log)
-    return {"price": price, "amount": amount, "dosage": dosage}
-
-
 def extract_dolphin(product, session, log):
     """Dolphin Fitness — typical retail site with JSON-LD or meta tags."""
     url = product["url"]
@@ -873,8 +635,6 @@ def main():
             scraped = None
             if strategy == "shopify":
                 scraped = extract_shopify(product, session, log)
-            elif strategy == "amazon":
-                scraped = extract_amazon(product, session, log)
             elif strategy == "dolphin":
                 scraped = extract_dolphin(product, session, log)
             elif strategy == "iherb":
