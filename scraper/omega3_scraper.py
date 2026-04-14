@@ -68,12 +68,6 @@ try:
 except ImportError:
     HAS_IHERB_SESSION = False
 
-try:
-    from amazon_session import fetch_amazon_page
-    HAS_AMAZON_SESSION = True
-except ImportError:
-    HAS_AMAZON_SESSION = False
-
 OUTPUT_DIR  = r"C:\Users\morit\Documents\Sonstiges\Dokumente"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "omega3_scrape_results.txt")
 
@@ -99,7 +93,6 @@ KNOWN = {
     "Bulk":                  (270, 330,   32.99),
     "Aliment":               (120, 315,   19.99),
     "Wiley's Finest (Minis)":(180, 180,   17.99),
-    "Omegor":                (60,  267,   9.50),
     "Wiley's Finest (Peak)": (90,  750,   51.00),
     "Lamberts":              (90,  357.5, 43.95),
     "BioCare":               (60,  262,   25.39),
@@ -115,7 +108,6 @@ PRODUCTS = [
     {"brand": "Bulk",                  "url": "https://www.bulk.com/uk/products/super-strength-omega-3-softgels/bpb-o3ss-0000",                              "strategy": "jsonld",     "variant_hint": None},
     {"brand": "Aliment",               "url": "https://alimentnutrition.co.uk/products/omega3-fish-oil-capsules-epa-dha",                                    "strategy": "shopify",    "variant_hint": "1 x 120"},
     {"brand": "Wiley's Finest (Minis)","url": "https://www.wileysfinest.co.uk/products/easy-swallow-minis",                                                  "strategy": "shopify",    "variant_hint": "180"},
-    {"brand": "Omegor",                "url": "https://www.amazon.co.uk/Omega-Fish-Capsules-IFOS-Certified/dp/B00CO89IAO",                                   "strategy": "amazon",     "variant_hint": None},
     {"brand": "Wiley's Finest (Peak)", "url": "https://www.wileysfinest.co.uk/products/peak-epa-30-softgels-1-months-supply",                                "strategy": "shopify",    "variant_hint": "90"},
     {"brand": "Lamberts",              "url": "https://victoriahealth.com/pulse-pure-fish-oil-1300mg-coq10-100mg/",                                          "strategy": "meta_jsonld","variant_hint": None},
     {"brand": "BioCare",               "url": "https://www.nvspharmacy.co.uk/products/biocare-mega-epa-60-capsules",                                         "strategy": "shopify",    "variant_hint": "Default"},
@@ -433,286 +425,6 @@ def extract_capsule_count(variant_title, product_title, body_text, log):
 
     log(f"    !! Could not extract capsule count")
     return None
-
-
-def extract_amazon_count(title, soup, log):
-    # Pattern that handles "softgel caps/capsules" as compound phrase
-    count_pat = r"(\d+)\s*(?:soft\s*gel\s+caps(?:ules?)?|capsules|softgels|tablets|soft\s*gels|caps)\b"
-
-    m = re.search(count_pat, title, re.I)
-    if m and 10 <= int(m.group(1)) <= 2000:
-        log(f"    Count from Amazon title: {m.group(1)}")
-        return int(m.group(1))
-
-    # Check full <title> and <meta name="title"> (often longer than H1)
-    for tag in [soup.find("title"), soup.find("meta", attrs={"name": "title"})]:
-        if tag:
-            full_title = tag.get("content", "") if tag.name == "meta" else tag.get_text()
-            m = re.search(count_pat, full_title, re.I)
-            if m and 10 <= int(m.group(1)) <= 2000:
-                log(f"    Count from Amazon meta/page title: {m.group(1)}")
-                return int(m.group(1))
-
-    m = re.search(r"(\d+)\s*count\b", title, re.I)
-    if m and int(m.group(1)) >= 10:
-        log(f"    Count from Amazon title (count): {m.group(1)}")
-        return int(m.group(1))
-    for det_id in ["feature-bullets", "detailBullets_feature_div",
-                    "productDetails_detailBullets_sections1",
-                    "productDetails_techSpec_section_1"]:
-        det = soup.find(attrs={"id": det_id})
-        if det:
-            text = det.get_text(" ", strip=True)
-            m = re.search(r"(\d+)\s*(?:count|capsules|softgels|tablets)\b", text, re.I)
-            if m and int(m.group(1)) >= 10:
-                log(f"    Count from Amazon section '{det_id}': {m.group(1)}")
-                return int(m.group(1))
-    # Last resort: look in the whole page for "Pack of X", "X Count", or "(X Softgel Caps)"
-    page_text = soup.get_text(" ", strip=True)
-    m = re.search(r"(?:pack\s+of|contains)\s+(\d+)\s*(?:capsules|softgels|tablets)", page_text, re.I)
-    if m and int(m.group(1)) >= 10:
-        log(f"    Count from Amazon page text: {m.group(1)}")
-        return int(m.group(1))
-    # Parenthesized count like "(60 Softgel Caps)" or "(120 Capsules)"
-    m = re.search(r"\(\s*(\d+)\s+(?:soft\s*gel\s+)?(?:caps(?:ules?)?|softgels|tablets|soft\s*gels)\s*\)", page_text, re.I)
-    if m and 10 <= int(m.group(1)) <= 2000:
-        log(f"    Count from Amazon parenthesized: {m.group(1)}")
-        return int(m.group(1))
-    log(f"    !! Could not extract count from Amazon page")
-    return None
-
-
-# ── DOMAIN-SPECIFIC EXTRACTORS ─────────────────────────────────────────────
-
-def _variant_pack_multiplier(variant_title):
-    """Detect pack variants like '3 Pack', 'Three Pack', '6 Pack'.
-    Returns the multiplier (e.g. 3) or None if not a pack variant."""
-    _PACK_WORDS = {
-        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-    }
-    m = re.search(r"(\d+)\s*[-\s]*packs?\b", variant_title, re.I)
-    if m:
-        return int(m.group(1))
-    for word, num in _PACK_WORDS.items():
-        if re.search(rf"\b{word}\s*[-\s]*packs?\b", variant_title, re.I):
-            return num
-    return None
-
-
-def extract_shopify(product, session, log):
-    url = product["url"]
-
-    log(f"    Fetching Shopify JSON...")
-    sj = fetch_shopify_json(url, session)
-    if not sj or "product" not in sj:
-        log(f"    !! Shopify JSON not available")
-        return None
-
-    pj = sj["product"]
-    title = pj.get("title", "")
-    body = re.sub(r"<[^>]+>", " ", pj.get("body_html", ""))
-    variants = pj.get("variants", [])
-
-    log(f"    Title: {title}")
-    log(f"    Variants ({len(variants)}):")
-    for v in variants:
-        log(f"      {v.get('title','?'):35s}  GBP {v.get('price','?'):>8s}  SKU: {v.get('sku','?')}")
-
-    # Fetch page HTML once (shared across variants) for dosage info
-    log(f"    Fetching page HTML for nutritional info...")
-    status, html = fetch_page(url, session)
-    page_text = ""
-    if status == 200:
-        soup = BeautifulSoup(html, "lxml")
-        page_text = soup.get_text(" ", strip=True)
-        og = soup.find("meta", property="og:description")
-        if og and og.get("content"):
-            page_text = og["content"] + " ||| " + page_text
-
-    combined = f"{body} ||| {page_text}"
-    dosage = extract_epa_dosage(title, body, combined, log)
-
-    # ── Build a result for EVERY variant (size/pack) ───────────────
-    # Filter out variants whose title is just "Default Title" or empty
-    # when there's only one variant — treat as a single product.
-    is_single = (len(variants) <= 1 or
-                 all((v.get("title") or "").strip().lower() in
-                     ("", "default", "default title") for v in variants))
-
-    if is_single:
-        chosen = variants[0] if variants else None
-        price = float(chosen["price"]) if chosen else None
-        amount = extract_capsule_count(
-            chosen.get("title", "") if chosen else "", title, body, log)
-        if amount is None and page_text:
-            log(f"    Retrying capsule count from page HTML...")
-            amount = extract_capsule_count("", title, page_text, log)
-        return {"price": price, "amount": amount, "dosage": dosage}
-
-    # Determine base capsule count for pack-multiplier variants
-    base_count = extract_capsule_count("", title, body, log)
-    if base_count is None and page_text:
-        base_count = extract_capsule_count("", title, page_text, log)
-    log(f"    Base capsule count (from product): {base_count}")
-
-    # Multiple real variants → expand each into its own result
-    results = []
-    for v in variants:
-        vt = (v.get("title") or "").strip()
-        vprice = float(v["price"]) if v.get("price") else None
-        log(f"    -- Variant '{vt}' --")
-        log(f"       Price: GBP {vprice}")
-
-        # Check for pack variant (e.g. "Three Pack", "6 Pack")
-        pack_mult = _variant_pack_multiplier(vt)
-        if pack_mult and base_count:
-            vamount = pack_mult * base_count
-            log(f"       Pack variant: {pack_mult} x {base_count} = {vamount}")
-        else:
-            vamount = extract_capsule_count(vt, title, body, log)
-            if vamount is None and page_text:
-                vamount = extract_capsule_count(vt, title, page_text, log)
-
-        log(f"       Amount: {vamount}")
-        results.append({
-            "price": vprice,
-            "amount": vamount,
-            "dosage": dosage,
-            "variant_label": vt,
-        })
-
-    return results if results else None
-
-
-def extract_jsonld(product, session, log):
-    url = product["url"]
-    log(f"    Fetching page HTML...")
-    status, html = fetch_page(url, session)
-    if status != 200:
-        log(f"    !! HTTP {status}")
-        return None
-
-    soup = BeautifulSoup(html, "lxml")
-    page_text = soup.get_text(" ", strip=True)
-
-    price = None
-    name = ""
-    for tag in soup.find_all("script", type="application/ld+json"):
-        try:
-            data = json.loads(tag.string)
-            items = [data]
-            if isinstance(data, dict) and "@graph" in data:
-                items = data["@graph"] if isinstance(data["@graph"], list) else [data["@graph"]]
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                if "Product" in str(item.get("@type", "")):
-                    name = item.get("name", "")
-                    log(f"    JSON-LD Product: {name}")
-                    offers = item.get("offers", {})
-                    if isinstance(offers, dict) and offers.get("price"):
-                        price = float(offers["price"])
-                    elif isinstance(offers, list):
-                        for o in offers:
-                            p = o.get("price")
-                            avail = o.get("availability", "")
-                            log(f"      Offer: GBP {p}  avail={avail}")
-                            if p and "InStock" in avail:
-                                price = float(p)
-                    if not price:
-                        off = item.get("offers", {})
-                        if isinstance(off, dict):
-                            p = off.get("lowPrice") or off.get("price")
-                            if p:
-                                price = float(p)
-        except (json.JSONDecodeError, TypeError):
-            pass
-
-    if not price:
-        for meta_name in ["product:price:amount", "og:price:amount"]:
-            tag = soup.find("meta", property=meta_name)
-            if tag and tag.get("content"):
-                try:
-                    price = float(tag["content"])
-                    log(f"    Meta price ({meta_name}): GBP {price}")
-                except ValueError:
-                    pass
-
-    log(f"    -> Price: GBP {price}")
-    amount = extract_capsule_count("", name, page_text, log)
-    dosage = extract_epa_dosage(name, page_text, page_text, log)
-    return {"price": price, "amount": amount, "dosage": dosage}
-
-
-def extract_amazon(product, session, log):
-    url = product["url"]
-    log(f"    Fetching Amazon page...")
-
-    # Try Playwright first (JS rendering + stealth)
-    html = None
-    if HAS_AMAZON_SESSION:
-        status, pw_html = fetch_amazon_page(url, log)
-        if status == 200 and pw_html and len(pw_html) > 20000:
-            html = pw_html
-
-    # Fallback to plain requests
-    if not html:
-        log(f"    Trying plain requests fallback...")
-        req_status, req_html = fetch_page(url, session)
-        if req_status == 200:
-            html = req_html
-
-    if not html:
-        log(f"    !! Could not fetch Amazon page")
-        return None
-
-    soup = BeautifulSoup(html, "lxml")
-    title = soup.title.string.strip() if soup.title and soup.title.string else ""
-    log(f"    Title: {title[:120]}")
-
-    # Check for CAPTCHA
-    if "captcha" in html.lower()[:3000] or "robot" in html.lower()[:3000]:
-        log(f"    !! CAPTCHA / bot detection triggered")
-        return None
-
-    price = None
-    whole_tag = soup.find("span", class_="a-price-whole")
-    frac_tag = soup.find("span", class_="a-price-fraction")
-    if whole_tag and frac_tag:
-        try:
-            whole = whole_tag.get_text(strip=True).rstrip(".")
-            frac = frac_tag.get_text(strip=True)
-            price = float(f"{whole}.{frac}")
-            log(f"    Price from a-price: GBP {price}")
-        except ValueError:
-            pass
-    if not price:
-        core = soup.find("div", id="corePrice_feature_div")
-        if core:
-            m = re.search(r"[\x{00A3}](\d+\.\d{2})", core.get_text())
-            if m:
-                price = float(m.group(1))
-    log(f"    -> Price: GBP {price}")
-
-    amount = extract_amazon_count(title, soup, log)
-
-    # Restrict dosage search to product sections only (not recommendations)
-    dosage_text = title
-    for section_id in ["productDescription", "feature-bullets", "aplus-v2",
-                        "aplus_feature_div", "productDescription_feature_div"]:
-        section = soup.find("div", id=section_id)
-        if section:
-            dosage_text += " ||| " + section.get_text(" ", strip=True)
-    for table in soup.find_all("table"):
-        text = table.get_text(" ", strip=True)
-        if re.search(r"EPA|eicosapentaenoic|supplement\s*facts|nutritional", text, re.I):
-            dosage_text += " ||| " + text
-            break
-
-    dosage = extract_epa_dosage(title, dosage_text, dosage_text, log)
-    return {"price": price, "amount": amount, "dosage": dosage}
-
 
 def extract_meta_jsonld(product, session, log):
     return extract_jsonld(product, session, log)
@@ -1148,8 +860,6 @@ def main():
                 scraped = extract_shopify(product, session, log)
             elif strategy == "jsonld":
                 scraped = extract_jsonld(product, session, log)
-            elif strategy == "amazon":
-                scraped = extract_amazon(product, session, log)
             elif strategy == "meta_jsonld":
                 scraped = extract_meta_jsonld(product, session, log)
             elif strategy == "iherb":
