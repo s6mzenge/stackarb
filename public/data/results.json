@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-14T11:45:52.973765+00:00",
+  "scraped_at": "2026-04-14T11:49:34.971881+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -367,7 +367,7 @@
         },
         {
           "brand": "Time Health (Vegan Omega-3)",
-          "url": "https://timehealth.co.uk/products/vegan-omega3?selling_plan=690644287817&variant=52860775825737",
+          "url": "https://timehealth.co.uk/products/vegan-omega3",
           "strategy": "v_shopify",
           "vegan": true,
           "scraped_price": null,
@@ -598,17 +598,17 @@
           "vegan": false,
           "scraped_price": 16.69,
           "scraped_amount": 240,
-          "scraped_dosage": null,
+          "scraped_dosage": 18.0,
           "known_price": 18.49,
           "known_amount": 240,
           "known_dosage": 18,
           "final_price": 16.69,
           "final_amount": 240,
-          "final_dosage": 18,
+          "final_dosage": 18.0,
           "theo_cost": 0.09272222222222222,
           "prac_cost": 0.13908333333333334,
           "prac_caps": 2,
-          "data_source": "mixed",
+          "data_source": "live",
           "price_changed": true
         },
         {
