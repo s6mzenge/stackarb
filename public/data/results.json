@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-14T12:01:06.083859+00:00",
+  "scraped_at": "2026-04-14T12:04:13.432849+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -364,26 +364,6 @@
           "prac_caps": 4,
           "data_source": "live",
           "price_changed": true
-        },
-        {
-          "brand": "Time Health (Vegan Omega-3)",
-          "url": "https://timehealth.co.uk/products/vegan-omega3",
-          "strategy": "v_shopify",
-          "vegan": true,
-          "scraped_price": null,
-          "scraped_amount": null,
-          "scraped_dosage": null,
-          "known_price": 22.99,
-          "known_amount": 120,
-          "known_dosage": 165,
-          "final_price": 22.99,
-          "final_amount": 120,
-          "final_dosage": 165,
-          "theo_cost": 3.4833333333333334,
-          "prac_cost": 3.640083333333333,
-          "prac_caps": 19,
-          "data_source": "spreadsheet",
-          "price_changed": false
         },
         {
           "brand": "Wiley's Finest (Minis) (180 Count (3 month supply) Exp 04/28)",
