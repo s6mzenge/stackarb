@@ -68,6 +68,12 @@ try:
 except ImportError:
     HAS_IHERB_SESSION = False
 
+try:
+    from amazon_session import fetch_amazon_page
+    HAS_AMAZON_SESSION = True
+except ImportError:
+    HAS_AMAZON_SESSION = False
+
 OUTPUT_DIR  = r"C:\Users\morit\Documents\Sonstiges\Dokumente"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "omega3_scrape_results.txt")
 
@@ -642,14 +648,33 @@ def extract_jsonld(product, session, log):
 def extract_amazon(product, session, log):
     url = product["url"]
     log(f"    Fetching Amazon page...")
-    status, html = fetch_page(url, session)
-    if status != 200:
-        log(f"    !! HTTP {status}")
+
+    # Try Playwright first (JS rendering + stealth)
+    html = None
+    if HAS_AMAZON_SESSION:
+        status, pw_html = fetch_amazon_page(url, log)
+        if status == 200 and pw_html and len(pw_html) > 20000:
+            html = pw_html
+
+    # Fallback to plain requests
+    if not html:
+        log(f"    Trying plain requests fallback...")
+        req_status, req_html = fetch_page(url, session)
+        if req_status == 200:
+            html = req_html
+
+    if not html:
+        log(f"    !! Could not fetch Amazon page")
         return None
 
     soup = BeautifulSoup(html, "lxml")
     title = soup.title.string.strip() if soup.title and soup.title.string else ""
     log(f"    Title: {title[:120]}")
+
+    # Check for CAPTCHA
+    if "captcha" in html.lower()[:3000] or "robot" in html.lower()[:3000]:
+        log(f"    !! CAPTCHA / bot detection triggered")
+        return None
 
     price = None
     whole_tag = soup.find("span", class_="a-price-whole")
