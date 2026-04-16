@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-16T23:00:59.562351+00:00",
+  "scraped_at": "2026-04-16T23:15:56.119576+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -390,9 +390,9 @@
           "url": "https://victoriahealth.com/pulse-pure-fish-oil-1300mg-coq10-100mg/",
           "strategy": "meta_jsonld",
           "vegan": false,
-          "scraped_price": 43.95,
-          "scraped_amount": 90,
-          "scraped_dosage": 357.5,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 43.95,
           "known_amount": 90,
           "known_dosage": 357.5,
@@ -402,7 +402,7 @@
           "theo_cost": 4.097902097902098,
           "prac_cost": 4.3950000000000005,
           "prac_caps": 9,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         },
         {
