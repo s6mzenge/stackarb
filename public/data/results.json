@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-18T18:30:52.593252+00:00",
+  "scraped_at": "2026-04-18T18:45:52.502067+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -170,9 +170,9 @@
           "url": "https://uk.iherb.com/pr/now-foods-ultra-omega-3-fish-oil-180-softgels/8341",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": 31.81,
-          "scraped_amount": 180,
-          "scraped_dosage": 500,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 31.81,
           "known_amount": 180,
           "known_dosage": 500,
@@ -182,7 +182,7 @@
           "theo_cost": 1.0603333333333333,
           "prac_cost": 1.0603333333333333,
           "prac_caps": 6,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         },
         {
@@ -596,9 +596,9 @@
           "url": "https://uk.iherb.com/pr/micro-ingredients-astaxanthin-12-mg-120-softgels/148176",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": 30.48,
-          "scraped_amount": 120,
-          "scraped_dosage": 12,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 30.48,
           "known_amount": 120,
           "known_dosage": 12,
@@ -608,7 +608,7 @@
           "theo_cost": 0.508,
           "prac_cost": 0.508,
           "prac_caps": 2,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         },
         {
@@ -616,9 +616,9 @@
           "url": "https://uk.iherb.com/pr/nutricost-astaxanthin-12-mg-60-softgels/139393",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": 22.62,
-          "scraped_amount": 60,
-          "scraped_dosage": 12,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 22.62,
           "known_amount": 60,
           "known_dosage": 12,
@@ -628,7 +628,7 @@
           "theo_cost": 0.754,
           "prac_cost": 0.754,
           "prac_caps": 2,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         },
         {
@@ -636,9 +636,9 @@
           "url": "https://uk.iherb.com/pr/california-gold-nutrition-astaxanthin-astalif-pure-icelandic-12-mg-30-veggie-softgels/71683",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": 11.45,
-          "scraped_amount": 30,
-          "scraped_dosage": 12,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 11.45,
           "known_amount": 30,
           "known_dosage": 12,
@@ -648,7 +648,7 @@
           "theo_cost": 0.7633333333333333,
           "prac_cost": 0.7633333333333333,
           "prac_caps": 2,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         },
         {
@@ -656,9 +656,9 @@
           "url": "https://uk.iherb.com/pr/nutricost-astaxanthin-4-mg-120-softgels/132855",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": 16.9,
-          "scraped_amount": 120,
-          "scraped_dosage": 4,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 16.9,
           "known_amount": 120,
           "known_dosage": 4,
@@ -668,7 +668,7 @@
           "theo_cost": 0.845,
           "prac_cost": 0.845,
           "prac_caps": 6,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         },
         {
@@ -696,9 +696,9 @@
           "url": "https://uk.iherb.com/pr/now-foods-astaxanthin-10-mg-60-softgels/38292",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": 24.38,
-          "scraped_amount": 60,
-          "scraped_dosage": 10,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 24.38,
           "known_amount": 60,
           "known_dosage": 10,
@@ -708,7 +708,7 @@
           "theo_cost": 0.9752,
           "prac_cost": 1.219,
           "prac_caps": 3,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         },
         {
@@ -1002,9 +1002,9 @@
           "url": "https://uk.iherb.com/pr/21st-century-lycopene-25-mg-60-tablets/3359",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": 10.54,
-          "scraped_amount": 60,
-          "scraped_dosage": 25,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 10.54,
           "known_amount": 60,
           "known_dosage": 25,
@@ -1014,7 +1014,7 @@
           "theo_cost": 0.3513333333333333,
           "prac_cost": 0.3513333333333333,
           "prac_caps": 2,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         },
         {
@@ -1022,9 +1022,9 @@
           "url": "https://uk.iherb.com/pr/nutricost-lycopene-20-mg-120-softgels/136835",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": 17.39,
-          "scraped_amount": 120,
-          "scraped_dosage": 20,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 17.39,
           "known_amount": 120,
           "known_dosage": 20,
@@ -1034,7 +1034,7 @@
           "theo_cost": 0.3622916666666667,
           "prac_cost": 0.43475,
           "prac_caps": 3,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         },
         {
@@ -1042,9 +1042,9 @@
           "url": "https://uk.iherb.com/pr/swanson-lycopene-20-mg-60-softgels/116298",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": 10.08,
-          "scraped_amount": 60,
-          "scraped_dosage": 20,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 10.08,
           "known_amount": 60,
           "known_dosage": 20,
@@ -1054,7 +1054,7 @@
           "theo_cost": 0.42,
           "prac_cost": 0.504,
           "prac_caps": 3,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         }
       ]
