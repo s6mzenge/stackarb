@@ -298,6 +298,213 @@ function CostCell({ cost, history, supplement, brand, accent, doseLabel, isTop }
 }
 
 
+/* ── All-Brands Chart (inline in each panel) ───────────────────── */
+
+const CHART_COLORS = [
+  '#3dc97a', '#3b8beb', '#e85d4a', '#d4a843', '#a87cf7',
+  '#4dd4c0', '#eb6b9d', '#7aade0', '#f0a050', '#8dd47a',
+  '#c97adb', '#5cc4e8', '#e0c45a', '#7a8cf7', '#e87a6a',
+]
+
+function AllBrandsChart({ history, supplement, accent }) {
+  const [highlighted, setHighlighted] = useState(null)
+  const [hover, setHover] = useState(null)
+
+  const { brands, series, dates } = useMemo(() => {
+    if (!history?.snapshots?.length) return { brands: [], series: {}, dates: [] }
+
+    const brandSet = new Set()
+    for (const snap of history.snapshots) {
+      const costs = snap[supplement]
+      if (costs) Object.keys(costs).forEach(b => brandSet.add(b))
+    }
+
+    const ser = {}
+    const allDates = history.snapshots.map(s => s.date)
+    for (const brand of brandSet) {
+      const vals = history.snapshots.map(s => s[supplement]?.[brand] ?? null)
+      if (vals.filter(v => v != null).length >= 2) ser[brand] = vals
+    }
+
+    const sorted = Object.keys(ser).sort((a, b) => {
+      const aLast = [...ser[a]].reverse().find(v => v != null) ?? Infinity
+      const bLast = [...ser[b]].reverse().find(v => v != null) ?? Infinity
+      return aLast - bLast
+    })
+
+    return { brands: sorted, series: ser, dates: allDates }
+  }, [history, supplement])
+
+  if (brands.length === 0) return null
+
+  const colorFor = (i) => CHART_COLORS[i % CHART_COLORS.length]
+
+  const W = 660, H = 260
+  const PAD = { top: 16, right: 16, bottom: 36, left: 60 }
+  const plotW = W - PAD.left - PAD.right
+  const plotH = H - PAD.top - PAD.bottom
+
+  const allVals = brands.flatMap(b => series[b].filter(v => v != null))
+  const dataMin = Math.min(...allVals)
+  const dataMax = Math.max(...allVals)
+  const margin = (dataMax - dataMin) * 0.08 || 0.01
+  const yMin = Math.max(0, dataMin - margin)
+  const yMax = dataMax + margin
+  const yRange = yMax - yMin
+
+  const toX = (i) => PAD.left + (i / (dates.length - 1)) * plotW
+  const toY = (v) => PAD.top + (1 - (v - yMin) / yRange) * plotH
+
+  const polylines = brands.map((brand, bi) => {
+    const vals = series[brand]
+    const segments = []
+    let current = []
+    for (let i = 0; i < vals.length; i++) {
+      if (vals[i] != null) {
+        current.push({ x: toX(i), y: toY(vals[i]), idx: i, cost: vals[i] })
+      } else if (current.length > 0) {
+        segments.push(current)
+        current = []
+      }
+    }
+    if (current.length > 0) segments.push(current)
+    return { brand, color: colorFor(bi), segments }
+  })
+
+  const nTicks = 5
+  const yTicks = Array.from({ length: nTicks }, (_, i) => {
+    const val = yMin + (i / (nTicks - 1)) * yRange
+    return { val, y: toY(val) }
+  })
+
+  const nLabels = Math.min(6, dates.length)
+  const xLabels = nLabels < 2 ? [] : Array.from({ length: nLabels }, (_, i) => {
+    const idx = Math.round(i * (dates.length - 1) / (nLabels - 1))
+    const d = new Date(dates[idx])
+    return { x: toX(idx), label: `${d.getDate()}/${d.getMonth() + 1}` }
+  })
+
+  const handleMouseMove = (e) => {
+    const svg = e.currentTarget
+    const rect = svg.getBoundingClientRect()
+    const mouseX = ((e.clientX - rect.left) / rect.width) * W
+    const snapIdx = Math.round(((mouseX - PAD.left) / plotW) * (dates.length - 1))
+    setHover(Math.max(0, Math.min(dates.length - 1, snapIdx)))
+  }
+
+  const tooltipData = hover != null ? brands
+    .map((b, i) => ({ brand: b, cost: series[b][hover], color: colorFor(i) }))
+    .filter(d => d.cost != null)
+    .sort((a, b) => a.cost - b.cost)
+    .slice(0, 8) : []
+
+  const tooltipXPct = hover != null ? (toX(hover) / W) * 100 : 0
+  const tooltipFlip = tooltipXPct > 65
+
+  return (
+    <div className="ab-chart">
+      <div className="ab-chart-label">Price history — all products</div>
+      <div className="ab-chart-body">
+        <svg
+          width="100%"
+          viewBox={`0 0 ${W} ${H}`}
+          className="ab-svg"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => setHover(null)}
+        >
+          {yTicks.map((t, i) => (
+            <g key={i}>
+              <line x1={PAD.left} y1={t.y} x2={PAD.left + plotW} y2={t.y}
+                stroke="var(--border)" strokeWidth="0.5" />
+              <text x={PAD.left - 8} y={t.y + 3.5} textAnchor="end"
+                fill="var(--text3)" fontSize="9" fontFamily="'JetBrains Mono', monospace">
+                {'£' + t.val.toFixed(2)}
+              </text>
+            </g>
+          ))}
+          {xLabels.map((l, i) => (
+            <text key={i} x={l.x} y={PAD.top + plotH + 18} textAnchor="middle"
+              fill="var(--text3)" fontSize="9" fontFamily="'JetBrains Mono', monospace">
+              {l.label}
+            </text>
+          ))}
+
+          {polylines.map(({ brand, color, segments }) => {
+            const isHigh = highlighted === brand
+            const isFaded = highlighted != null && !isHigh
+            return segments.map((pts, si) => (
+              <polyline
+                key={`${brand}-${si}`}
+                points={pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}
+                fill="none"
+                stroke={color}
+                strokeWidth={isHigh ? 2.5 : 1.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity={isFaded ? 0.07 : isHigh ? 1 : 0.5}
+                style={{ transition: 'opacity 0.15s, stroke-width 0.15s' }}
+              />
+            ))
+          })}
+
+          {hover != null && (
+            <line
+              x1={toX(hover)} y1={PAD.top}
+              x2={toX(hover)} y2={PAD.top + plotH}
+              stroke="var(--text3)" strokeWidth="0.5" strokeDasharray="3,3"
+            />
+          )}
+        </svg>
+
+        {hover != null && tooltipData.length > 0 && (
+          <div className="ab-tooltip" style={{
+            left: tooltipFlip ? undefined : `${tooltipXPct}%`,
+            right: tooltipFlip ? `${100 - tooltipXPct}%` : undefined,
+            transform: tooltipFlip ? 'translateX(8px)' : 'translateX(-50%)',
+          }}>
+            <div className="ab-tooltip-date">
+              {new Date(dates[hover]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </div>
+            {tooltipData.map(d => (
+              <div key={d.brand} className="ab-tooltip-row">
+                <span className="ab-tooltip-sw" style={{ background: d.color }} />
+                <span className="ab-tooltip-brand">{d.brand}</span>
+                <span className="ab-tooltip-cost">{fmtCost(d.cost)}</span>
+              </div>
+            ))}
+            {brands.filter(b => series[b][hover] != null).length > 8 && (
+              <div className="ab-tooltip-more">
+                +{brands.filter(b => series[b][hover] != null).length - 8} more
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="ab-legend">
+        {brands.map((brand, i) => {
+          const lastCost = [...series[brand]].reverse().find(v => v != null)
+          return (
+            <button
+              key={brand}
+              className={`ab-legend-item ${highlighted === brand ? 'ab-active' : ''}`}
+              onMouseEnter={() => setHighlighted(brand)}
+              onMouseLeave={() => setHighlighted(null)}
+            >
+              <span className="ab-legend-sw" style={{ background: colorFor(i) }} />
+              <span className="ab-legend-name">{brand}</span>
+              {lastCost != null && (
+                <span className="ab-legend-cost">{fmtCost(lastCost)}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+
 /* ── Main Panel ─────────────────────────────────────────────────── */
 
 function Panel({ data, accent, history, supplement }) {
@@ -337,6 +544,8 @@ function Panel({ data, accent, history, supplement }) {
           <div className="value">{r.length}</div>
         </div>
       </div>
+
+      <AllBrandsChart history={history} supplement={supplement} accent={accent} />
 
       <div className="table-wrap">
         <table>
@@ -673,10 +882,79 @@ td.brand-cell a:hover { border-color: var(--text2); }
   margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
 }
 
+/* ── All-Brands Chart ───────────────────────────────────────── */
+.ab-chart {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px 14px;
+  margin-bottom: 20px;
+}
+.ab-chart-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--text3); margin-bottom: 12px;
+}
+.ab-chart-body { position: relative; }
+.ab-svg { display: block; }
+.ab-tooltip {
+  position: absolute; top: 4px;
+  background: var(--surface); border: 1px solid var(--border-hi);
+  border-radius: 8px; padding: 8px 12px;
+  font-size: 11px; pointer-events: none;
+  z-index: 10; min-width: 190px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+}
+.ab-tooltip-date {
+  font-family: var(--mono); font-size: 9px; color: var(--text3);
+  margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid var(--border);
+}
+.ab-tooltip-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 1.5px 0; font-family: var(--mono);
+}
+.ab-tooltip-sw {
+  width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0;
+}
+.ab-tooltip-brand {
+  flex: 1; font-size: 10px; color: var(--text2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 130px;
+}
+.ab-tooltip-cost {
+  font-size: 10px; font-weight: 600; color: var(--text);
+}
+.ab-tooltip-more {
+  font-size: 9px; color: var(--text3); margin-top: 3px; font-style: italic;
+}
+.ab-legend {
+  display: flex; flex-wrap: wrap; gap: 2px 4px; margin-top: 12px;
+  padding-top: 12px; border-top: 1px solid var(--border);
+}
+.ab-legend-item {
+  display: flex; align-items: center; gap: 5px;
+  background: transparent; border: 1px solid transparent;
+  padding: 3px 7px; border-radius: 5px;
+  cursor: pointer; transition: all 0.15s;
+  font-family: var(--font); font-size: 10px; color: var(--text2);
+}
+.ab-legend-item:hover, .ab-legend-item.ab-active {
+  background: rgba(255,255,255,0.04); border-color: var(--border);
+  color: var(--text);
+}
+.ab-legend-sw {
+  width: 10px; height: 3px; border-radius: 1px; flex-shrink: 0;
+}
+.ab-legend-name {
+  max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ab-legend-cost {
+  font-family: var(--mono); font-size: 9px; color: var(--text3);
+}
+
 @media (max-width: 768px) {
   .header, .tabs { padding-left: 16px; padding-right: 16px; }
   .panel { margin-left: 16px; margin-right: 16px; padding: 16px; }
   .chart-modal { padding: 16px; }
   .sparkline { width: 48px; }
+  .ab-chart { padding: 14px 12px 10px; }
+  .ab-tooltip { min-width: 150px; }
 }
 `
