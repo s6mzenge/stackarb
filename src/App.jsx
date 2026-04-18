@@ -278,11 +278,13 @@ function CostCell({ cost, history, supplement, brand, accent, doseLabel, isTop }
 
   return (
     <>
-      <td className="num cost-cell" style={{ fontWeight: 700, color: isTop ? 'var(--green)' : undefined }}>
-        <span className="cost-value">{fmtCost(cost)}</span>
-        {points.length >= 2 && (
-          <Sparkline points={points} color={accent} onClick={() => setShowChart(true)} />
-        )}
+      <td className="num" style={{ fontWeight: 700, color: isTop ? 'var(--green)' : undefined }}>
+        <div className="cost-cell-inner">
+          {points.length >= 2 && (
+            <Sparkline points={points} color={accent} onClick={() => setShowChart(true)} />
+          )}
+          <span className="cost-value">{fmtCost(cost)}</span>
+        </div>
       </td>
       {showChart && (
         <ChartModal
@@ -830,15 +832,13 @@ td.brand-cell a:hover { border-color: var(--text2); }
 }
 
 /* ── Sparkline & Cost cell ──────────────────────────────────── */
-.cost-cell {
-  display: flex !important;
+.cost-cell-inner {
+  display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
 }
-.cost-value { order: 2; }
 .sparkline {
-  order: 1;
   opacity: 0.65;
   transition: opacity 0.15s, transform 0.15s;
   flex-shrink: 0;
