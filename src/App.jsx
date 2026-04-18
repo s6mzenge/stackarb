@@ -380,7 +380,7 @@ function AllBrandsChart({ history, supplement, accent }) {
   }
 
   // ── Bump chart geometry ──────────────────────────────────────
-  const BW = 660, BH = 200
+  const BW = 400, BH = Math.max(200, activeBrands.length * 28 + 40)
   const BP = { top: 12, right: 14, bottom: 28, left: 32 }
   const bPlotW = BW - BP.left - BP.right
   const bPlotH = BH - BP.top - BP.bottom
@@ -442,9 +442,9 @@ function AllBrandsChart({ history, supplement, accent }) {
   const bumpTipXPct = bumpHover != null ? (bToX(bumpHover) / BW) * 100 : 0
 
   // ── Lollipop geometry ────────────────────────────────────────
-  const rowH = 26
-  const LW = 660, LH = activeBrands.length * rowH + 28
-  const LP = { top: 20, right: 14, bottom: 8, left: 180 }
+  const rowH = 28
+  const LW = 440, LH = activeBrands.length * rowH + 28
+  const LP = { top: 20, right: 14, bottom: 8, left: 145 }
   const lPlotW = LW - LP.left - LP.right
 
   // Log scale for lollipop
@@ -475,9 +475,11 @@ function AllBrandsChart({ history, supplement, accent }) {
         )}
       </div>
 
-      {/* ── Bump chart ──────────────────────────────────────── */}
-      <div className="ab-section-label">Rank over time (1 = cheapest)</div>
-      <div className="ab-body">
+      <div className="ab-charts-row">
+        {/* ── Bump chart ──────────────────────────────────────── */}
+        <div className="ab-chart-panel">
+          <div className="ab-section-label">Rank over time (1 = cheapest)</div>
+          <div className="ab-body">
         <svg
           width="100%" viewBox={`0 0 ${BW} ${BH}`} className="ab-svg"
           onMouseMove={bumpHandleMouseMove}
@@ -549,10 +551,12 @@ function AllBrandsChart({ history, supplement, accent }) {
           </div>
         )}
       </div>
+        </div>
 
-      {/* ── Lollipop ────────────────────────────────────────── */}
-      <div className="ab-section-label" style={{ marginTop: '4px' }}>Current daily cost (log scale)</div>
-      <div className="ab-body" style={{ paddingBottom: '8px' }}>
+        {/* ── Lollipop ────────────────────────────────────────── */}
+        <div className="ab-chart-panel">
+          <div className="ab-section-label">Current daily cost (log scale)</div>
+          <div className="ab-body" style={{ paddingBottom: '8px' }}>
         <svg width="100%" viewBox={`0 0 ${LW} ${LH}`} className="ab-svg">
           {/* X grid + labels */}
           {lTicks.map((t, i) => (
@@ -584,7 +588,7 @@ function AllBrandsChart({ history, supplement, accent }) {
                 {/* Brand label */}
                 <text x={LP.left - 8} y={cy + 3.5} textAnchor="end"
                   fill="var(--text2)" fontSize="10" fontFamily="'DM Sans', sans-serif">
-                  {brand.length > 24 ? brand.slice(0, 22) + '…' : brand}
+                  {brand.length > 20 ? brand.slice(0, 18) + '…' : brand}
                 </text>
                 {/* Whisker (min–max range) */}
                 <line x1={xMin} y1={cy} x2={xMax} y2={cy}
@@ -604,6 +608,8 @@ function AllBrandsChart({ history, supplement, accent }) {
             )
           })}
         </svg>
+          </div>
+        </div>
       </div>
 
       {/* ── Legend ───────────────────────────────────────────── */}
@@ -1016,7 +1022,7 @@ td.brand-cell a:hover { border-color: var(--text2); }
 }
 .ab-section-label {
   font-size: 9px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.4px; color: var(--text3); padding: 10px 18px 0;
+  letter-spacing: 0.4px; color: var(--text3); padding: 8px 12px 0;
   opacity: 0.7;
 }
 .ab-toggle {
@@ -1026,7 +1032,16 @@ td.brand-cell a:hover { border-color: var(--text2); }
   padding: 3px 10px; cursor: pointer; transition: all 0.15s;
 }
 .ab-toggle:hover { color: var(--text); border-color: var(--border-hi); }
-.ab-body { position: relative; padding: 10px 18px 0; }
+.ab-charts-row {
+  display: flex; gap: 0;
+}
+.ab-chart-panel {
+  flex: 1; min-width: 0; overflow: hidden;
+}
+.ab-chart-panel + .ab-chart-panel {
+  border-left: 1px solid var(--border);
+}
+.ab-body { position: relative; padding: 6px 12px 0; }
 .ab-svg { display: block; }
 
 .ab-tip {
@@ -1085,7 +1100,12 @@ td.brand-cell a:hover { border-color: var(--text2); }
   .panel { margin-left: 16px; margin-right: 16px; padding: 16px; }
   .chart-modal { padding: 16px; }
   .sparkline { width: 48px; }
-  .ab-body { padding: 8px 10px 0; }
+  .ab-charts-row { flex-direction: column; }
+  .ab-chart-panel + .ab-chart-panel {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .ab-body { padding: 6px 10px 0; }
   .ab-tip { min-width: 160px; }
 }
 `
