@@ -219,12 +219,21 @@ def main():
             history = {"snapshots": []}
 
     # Build snapshot: { date, omega3: {brand: cost, ...}, ... }
+    # When a scrape falls back to spreadsheet values (e.g. iHerb blocked),
+    # carry forward the last recorded price to avoid sawtooth oscillation.
+    prev_snapshot = history["snapshots"][-1] if history["snapshots"] else {}
     snapshot = {"date": output["scraped_at"]}
     for key, supp in output["supplements"].items():
         costs = {}
+        prev_costs = prev_snapshot.get(key, {})
         for r in supp["results"]:
             if r["prac_cost"] is not None:
-                costs[r["brand"]] = round(r["prac_cost"], 6)
+                brand = r["brand"]
+                if r["data_source"] == "spreadsheet" and brand in prev_costs:
+                    # Scrape failed entirely — reuse last known price
+                    costs[brand] = prev_costs[brand]
+                else:
+                    costs[brand] = round(r["prac_cost"], 6)
         snapshot[key] = costs
     history["snapshots"].append(snapshot)
 
@@ -234,7 +243,7 @@ def main():
         history["snapshots"] = history["snapshots"][-MAX_SNAPSHOTS:]
 
     with open(history_file, "w", encoding="utf-8") as f:
-        json.dump(history, f, indent=None, ensure_ascii=False)
+        json.dump(history, f, indent=2, ensure_ascii=False)
 
     print(f"  History: {len(history['snapshots'])} snapshots in {history_file}")
     print(f"  History size: {os.path.getsize(history_file) / 1024:.1f} KB\n")
