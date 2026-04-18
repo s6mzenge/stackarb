@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-18T18:01:03.820302+00:00",
+  "scraped_at": "2026-04-18T18:27:49.925529+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -386,26 +386,6 @@
           "price_changed": true
         },
         {
-          "brand": "Troo Healthcare (Vegan Omega-3)",
-          "url": "https://www.troohealthcare.com/vegan-omega-3-algal-oil-90-softgels-epa-dha",
-          "strategy": "v_jsonld",
-          "vegan": true,
-          "scraped_price": null,
-          "scraped_amount": null,
-          "scraped_dosage": null,
-          "known_price": 23.95,
-          "known_amount": 90,
-          "known_dosage": 200,
-          "final_price": 23.95,
-          "final_amount": 90,
-          "final_dosage": 200,
-          "theo_cost": 3.9916666666666663,
-          "prac_cost": 3.9916666666666663,
-          "prac_caps": 15,
-          "data_source": "spreadsheet",
-          "price_changed": false
-        },
-        {
           "brand": "Lamberts",
           "url": "https://victoriahealth.com/pulse-pure-fish-oil-1300mg-coq10-100mg/",
           "strategy": "meta_jsonld",
@@ -462,6 +442,26 @@
           "theo_cost": 4.997222222222222,
           "prac_cost": 5.097166666666666,
           "prac_caps": 17,
+          "data_source": "live",
+          "price_changed": false
+        },
+        {
+          "brand": "Troo Healthcare (Vegan Omega-3)",
+          "url": "https://www.troohealthcare.com/vegan-omega-3-algal-oil-90-softgels-epa-dha",
+          "strategy": "v_jsonld",
+          "vegan": true,
+          "scraped_price": 16.97,
+          "scraped_amount": 90,
+          "scraped_dosage": 100.0,
+          "known_price": 16.97,
+          "known_amount": 90,
+          "known_dosage": 100,
+          "final_price": 16.97,
+          "final_amount": 90,
+          "final_dosage": 100.0,
+          "theo_cost": 5.656666666666666,
+          "prac_cost": 5.656666666666666,
+          "prac_caps": 30,
           "data_source": "live",
           "price_changed": false
         },
