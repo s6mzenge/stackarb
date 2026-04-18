@@ -646,20 +646,14 @@ def extract_iherb(product, session, log):
     brand = product["brand"]
 
     if not HAS_IHERB_SESSION:
-        log(f"    !! iherb_session module not available — falling back to spreadsheet")
-        if brand in KNOWN:
-            amt, dos, pri = KNOWN[brand]
-            return {"price": pri, "amount": amt, "dosage": dos}
+        log(f"    !! iherb_session module not available")
         return None
 
     log(f"    Fetching iHerb page via shared session...")
     status, html = fetch_iherb_page(url, log)
 
     if status is None or status != 200 or not html:
-        log(f"    !! iHerb fetch failed — falling back to spreadsheet")
-        if brand in KNOWN:
-            amt, dos, pri = KNOWN[brand]
-            return {"price": pri, "amount": amt, "dosage": dos}
+        log(f"    !! iHerb fetch failed (status={status})")
         return None
 
     soup = BeautifulSoup(html, "lxml")
