@@ -300,7 +300,7 @@ function CostCell({ cost, history, supplement, brand, accent, doseLabel, isTop }
 }
 
 
-/* ── All-Brands Price Chart ─────────────────────────────────────── */
+/* ── Combined Bump Chart + Log Lollipop ────────────────────────── */
 
 const PALETTE = [
   '#3dc97a', '#3b8beb', '#f0a050', '#a87cf7', '#e85d75',
@@ -312,10 +312,10 @@ const DEFAULT_VISIBLE = 8
 function AllBrandsChart({ history, supplement, accent }) {
   const [showAll, setShowAll] = useState(false)
   const [hidden, setHidden] = useState(new Set())
-  const [hover, setHover] = useState(null)
+  const [bumpHover, setBumpHover] = useState(null)
 
-  const { allBrands, series, dates } = useMemo(() => {
-    if (!history?.snapshots?.length) return { allBrands: [], series: {}, dates: [] }
+  const { allBrands, series, dates, rankHistory, stats } = useMemo(() => {
+    if (!history?.snapshots?.length) return { allBrands: [], series: {}, dates: [], rankHistory: {}, stats: {} }
 
     const brandSet = new Set()
     for (const snap of history.snapshots) {
@@ -330,13 +330,38 @@ function AllBrandsChart({ history, supplement, accent }) {
       if (vals.filter(v => v != null).length >= 2) ser[brand] = vals
     }
 
+    // Sort by latest cost
     const sorted = Object.keys(ser).sort((a, b) => {
       const aLast = [...ser[a]].reverse().find(v => v != null) ?? Infinity
       const bLast = [...ser[b]].reverse().find(v => v != null) ?? Infinity
       return aLast - bLast
     })
 
-    return { allBrands: sorted, series: ser, dates: allDates }
+    // Compute rank history: at each snapshot, rank all brands by cost
+    const rh = {}
+    sorted.forEach(b => { rh[b] = [] })
+    for (let si = 0; si < allDates.length; si++) {
+      const atSnap = sorted
+        .map(b => ({ brand: b, cost: ser[b][si] }))
+        .filter(d => d.cost != null)
+        .sort((a, b) => a.cost - b.cost)
+      atSnap.forEach((d, rank) => { rh[d.brand][si] = rank + 1 })
+      // Fill null for brands missing this snapshot
+      sorted.forEach(b => { if (rh[b][si] == null) rh[b][si] = null })
+    }
+
+    // Compute stats: min, max, current for lollipop
+    const st = {}
+    for (const brand of sorted) {
+      const vals = ser[brand].filter(v => v != null)
+      st[brand] = {
+        current: [...ser[brand]].reverse().find(v => v != null),
+        min: Math.min(...vals),
+        max: Math.max(...vals),
+      }
+    }
+
+    return { allBrands: sorted, series: ser, dates: allDates, rankHistory: rh, stats: st }
   }, [history, supplement])
 
   if (allBrands.length === 0) return null
@@ -344,94 +369,105 @@ function AllBrandsChart({ history, supplement, accent }) {
   const visibleBrands = showAll ? allBrands : allBrands.slice(0, DEFAULT_VISIBLE)
   const activeBrands = visibleBrands.filter(b => !hidden.has(b))
   const hiddenCount = allBrands.length - DEFAULT_VISIBLE
-
-  const colorFor = (brand) => {
-    const idx = allBrands.indexOf(brand)
-    return PALETTE[idx % PALETTE.length]
-  }
+  const colorFor = (brand) => PALETTE[allBrands.indexOf(brand) % PALETTE.length]
 
   const toggleBrand = (brand) => {
     setHidden(prev => {
       const next = new Set(prev)
-      if (next.has(brand)) next.delete(brand)
-      else next.add(brand)
+      next.has(brand) ? next.delete(brand) : next.add(brand)
       return next
     })
   }
 
-  // Chart dimensions
-  const W = 660, H = 240
-  const PAD = { top: 14, right: 14, bottom: 32, left: 56 }
-  const plotW = W - PAD.left - PAD.right
-  const plotH = H - PAD.top - PAD.bottom
+  // ── Bump chart geometry ──────────────────────────────────────
+  const BW = 660, BH = 200
+  const BP = { top: 12, right: 14, bottom: 28, left: 32 }
+  const bPlotW = BW - BP.left - BP.right
+  const bPlotH = BH - BP.top - BP.bottom
+  const maxRank = activeBrands.length || 1
 
-  // Y-range from ACTIVE brands only
-  const activeVals = activeBrands.flatMap(b => series[b].filter(v => v != null))
-  if (activeVals.length === 0) return null
-  const dataMin = Math.min(...activeVals)
-  const dataMax = Math.max(...activeVals)
-  const yPad = (dataMax - dataMin) * 0.1 || 0.01
-  const yMin = Math.max(0, dataMin - yPad)
-  const yMax = dataMax + yPad
-  const yRange = yMax - yMin
+  const bToX = (i) => BP.left + (i / Math.max(dates.length - 1, 1)) * bPlotW
+  const bToY = (rank) => BP.top + ((rank - 0.8) / (maxRank + 0.4 - 0.8)) * bPlotH
 
-  const toX = (i) => PAD.left + (i / (dates.length - 1)) * plotW
-  const toY = (v) => PAD.top + (1 - (v - yMin) / yRange) * plotH
+  // X labels for bump chart
+  const bNLabels = Math.min(6, dates.length)
+  const bXLabels = bNLabels < 2 ? [] : Array.from({ length: bNLabels }, (_, i) => {
+    const idx = Math.round(i * (dates.length - 1) / (bNLabels - 1))
+    const d = new Date(dates[idx])
+    return { x: bToX(idx), label: `${d.getDate()}/${d.getMonth() + 1}` }
+  })
 
-  // Build polylines for visible brands only
-  const polylines = visibleBrands.map(brand => {
-    const isHidden = hidden.has(brand)
-    const vals = series[brand]
+  // Build bump polylines
+  const bumpLines = activeBrands.map(brand => {
+    const ranks = rankHistory[brand]
+    // Only use ranks within the visible set
+    const activeRanks = []
+    for (let si = 0; si < dates.length; si++) {
+      const atSnap = activeBrands
+        .map(b => ({ brand: b, cost: series[b][si] }))
+        .filter(d => d.cost != null)
+        .sort((a, b) => a.cost - b.cost)
+      const idx = atSnap.findIndex(d => d.brand === brand)
+      activeRanks[si] = idx >= 0 ? idx + 1 : null
+    }
+
     const segments = []
     let current = []
-    for (let i = 0; i < vals.length; i++) {
-      if (vals[i] != null) {
-        current.push({ x: toX(i), y: isHidden ? 0 : toY(Math.max(yMin, Math.min(yMax, vals[i]))), cost: vals[i] })
+    for (let i = 0; i < dates.length; i++) {
+      if (activeRanks[i] != null) {
+        current.push({ x: bToX(i), y: bToY(activeRanks[i]), rank: activeRanks[i] })
       } else if (current.length > 0) {
         segments.push(current)
         current = []
       }
     }
     if (current.length > 0) segments.push(current)
-    return { brand, color: colorFor(brand), segments, isHidden }
+    return { brand, color: colorFor(brand), segments }
   })
 
-  // Y ticks
-  const nTicks = 5
-  const yTicks = Array.from({ length: nTicks }, (_, i) => {
-    const val = yMin + (i / (nTicks - 1)) * yRange
-    return { val, y: toY(val) }
-  })
-  // Smart label format: use 2 decimals if range > £1, 4 if tight
-  const yFmt = yRange > 1 ? (v) => '£' + v.toFixed(2) : (v) => '£' + v.toFixed(4)
-
-  // X labels
-  const nLabels = Math.min(6, dates.length)
-  const xLabels = nLabels < 2 ? [] : Array.from({ length: nLabels }, (_, i) => {
-    const idx = Math.round(i * (dates.length - 1) / (nLabels - 1))
-    const d = new Date(dates[idx])
-    return { x: toX(idx), label: `${d.getDate()}/${d.getMonth() + 1}` }
-  })
-
-  const handleMouseMove = (e) => {
+  // Bump hover tooltip
+  const bumpHandleMouseMove = (e) => {
     const svg = e.currentTarget
     const rect = svg.getBoundingClientRect()
-    const mouseX = ((e.clientX - rect.left) / rect.width) * W
-    const snapIdx = Math.round(((mouseX - PAD.left) / plotW) * (dates.length - 1))
-    setHover(Math.max(0, Math.min(dates.length - 1, snapIdx)))
+    const mouseX = ((e.clientX - rect.left) / rect.width) * BW
+    const snapIdx = Math.round(((mouseX - BP.left) / bPlotW) * (dates.length - 1))
+    setBumpHover(Math.max(0, Math.min(dates.length - 1, snapIdx)))
   }
 
-  const tooltipData = hover != null ? activeBrands
-    .map(b => ({ brand: b, cost: series[b][hover], color: colorFor(b) }))
+  const bumpTooltipData = bumpHover != null ? activeBrands
+    .map(b => ({ brand: b, cost: series[b][bumpHover], color: colorFor(b) }))
     .filter(d => d.cost != null)
     .sort((a, b) => a.cost - b.cost) : []
 
-  const tooltipXPct = hover != null ? (toX(hover) / W) * 100 : 0
+  const bumpTipXPct = bumpHover != null ? (bToX(bumpHover) / BW) * 100 : 0
+
+  // ── Lollipop geometry ────────────────────────────────────────
+  const rowH = 26
+  const LW = 660, LH = activeBrands.length * rowH + 28
+  const LP = { top: 20, right: 14, bottom: 8, left: 180 }
+  const lPlotW = LW - LP.left - LP.right
+
+  // Log scale for lollipop
+  const allActiveCosts = activeBrands.flatMap(b => [stats[b].min, stats[b].max])
+  const logMin = Math.log10(Math.min(...allActiveCosts) * 0.85)
+  const logMax = Math.log10(Math.max(...allActiveCosts) * 1.15)
+  const logRange = logMax - logMin
+
+  const lToX = (cost) => LP.left + ((Math.log10(cost) - logMin) / logRange) * lPlotW
+  const lToY = (i) => LP.top + i * rowH + rowH / 2
+
+  // Lollipop x-axis ticks (log-spaced)
+  const lTicks = []
+  const rawTicks = [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20]
+  for (const t of rawTicks) {
+    const log = Math.log10(t)
+    if (log >= logMin && log <= logMax) lTicks.push({ val: t, x: lToX(t) })
+  }
 
   return (
     <div className="ab-wrap">
       <div className="ab-head">
-        <span className="ab-title">Price history — all products</span>
+        <span className="ab-title">Price rankings + cost comparison</span>
         {hiddenCount > 0 && (
           <button className="ab-toggle" onClick={() => { setShowAll(!showAll); setHidden(new Set()) }}>
             {showAll ? `Top ${DEFAULT_VISIBLE} only` : `Show all ${allBrands.length}`}
@@ -439,67 +475,72 @@ function AllBrandsChart({ history, supplement, accent }) {
         )}
       </div>
 
+      {/* ── Bump chart ──────────────────────────────────────── */}
+      <div className="ab-section-label">Rank over time (1 = cheapest)</div>
       <div className="ab-body">
         <svg
-          width="100%"
-          viewBox={`0 0 ${W} ${H}`}
-          className="ab-svg"
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHover(null)}
+          width="100%" viewBox={`0 0 ${BW} ${BH}`} className="ab-svg"
+          onMouseMove={bumpHandleMouseMove}
+          onMouseLeave={() => setBumpHover(null)}
         >
-          {yTicks.map((t, i) => (
-            <g key={i}>
-              <line x1={PAD.left} y1={t.y} x2={PAD.left + plotW} y2={t.y}
+          {/* Y grid + labels */}
+          {Array.from({ length: maxRank }, (_, i) => i + 1).map(rank => (
+            <g key={rank}>
+              <line x1={BP.left} y1={bToY(rank)} x2={BP.left + bPlotW} y2={bToY(rank)}
                 stroke="var(--border)" strokeWidth="0.5" />
-              <text x={PAD.left - 6} y={t.y + 3.5} textAnchor="end"
+              <text x={BP.left - 6} y={bToY(rank) + 3.5} textAnchor="end"
                 fill="var(--text3)" fontSize="9" fontFamily="'JetBrains Mono', monospace">
-                {yFmt(t.val)}
+                #{rank}
               </text>
             </g>
           ))}
-          {xLabels.map((l, i) => (
-            <text key={i} x={l.x} y={PAD.top + plotH + 16} textAnchor="middle"
+          {bXLabels.map((l, i) => (
+            <text key={i} x={l.x} y={BP.top + bPlotH + 16} textAnchor="middle"
               fill="var(--text3)" fontSize="9" fontFamily="'JetBrains Mono', monospace">
               {l.label}
             </text>
           ))}
 
-          {polylines.map(({ brand, color, segments, isHidden }) => {
-            if (isHidden) return null
-            return segments.map((pts, si) => (
+          {/* Lines */}
+          {bumpLines.map(({ brand, color, segments }) =>
+            segments.map((pts, si) => (
               <polyline
                 key={`${brand}-${si}`}
                 points={pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}
-                fill="none"
-                stroke={color}
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity="0.85"
+                fill="none" stroke={color} strokeWidth="2.5"
+                strokeLinecap="round" strokeLinejoin="round" opacity="0.85"
               />
             ))
+          )}
+
+          {/* Last-point dots */}
+          {bumpLines.map(({ brand, color, segments }) => {
+            const last = segments[segments.length - 1]
+            if (!last) return null
+            const pt = last[last.length - 1]
+            return <circle key={brand} cx={pt.x} cy={pt.y} r="4" fill={color} stroke="var(--surface)" strokeWidth="1.5" />
           })}
 
-          {hover != null && (
-            <line
-              x1={toX(hover)} y1={PAD.top}
-              x2={toX(hover)} y2={PAD.top + plotH}
-              stroke="var(--text3)" strokeWidth="0.5" strokeDasharray="3,3"
-            />
+          {/* Hover crosshair */}
+          {bumpHover != null && (
+            <line x1={bToX(bumpHover)} y1={BP.top} x2={bToX(bumpHover)} y2={BP.top + bPlotH}
+              stroke="var(--text3)" strokeWidth="0.5" strokeDasharray="3,3" />
           )}
         </svg>
 
-        {hover != null && tooltipData.length > 0 && (
+        {/* Bump tooltip */}
+        {bumpHover != null && bumpTooltipData.length > 0 && (
           <div className="ab-tip" style={{
-            left: tooltipXPct > 60 ? undefined : `${tooltipXPct}%`,
-            right: tooltipXPct > 60 ? `${100 - tooltipXPct}%` : undefined,
-            transform: tooltipXPct > 60 ? 'translateX(12px)' : 'translateX(-50%)',
+            left: bumpTipXPct > 60 ? undefined : `${bumpTipXPct}%`,
+            right: bumpTipXPct > 60 ? `${100 - bumpTipXPct}%` : undefined,
+            transform: bumpTipXPct > 60 ? 'translateX(12px)' : 'translateX(-50%)',
           }}>
             <div className="ab-tip-date">
-              {new Date(dates[hover]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              {new Date(dates[bumpHover]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
             </div>
-            {tooltipData.map(d => (
+            {bumpTooltipData.map((d, i) => (
               <div key={d.brand} className="ab-tip-row">
+                <span className="ab-tip-rank">#{i + 1}</span>
                 <span className="ab-tip-dot" style={{ background: d.color }} />
                 <span className="ab-tip-name">{d.brand}</span>
                 <span className="ab-tip-val">{fmtCost(d.cost)}</span>
@@ -509,10 +550,66 @@ function AllBrandsChart({ history, supplement, accent }) {
         )}
       </div>
 
+      {/* ── Lollipop ────────────────────────────────────────── */}
+      <div className="ab-section-label" style={{ marginTop: '4px' }}>Current daily cost (log scale)</div>
+      <div className="ab-body" style={{ paddingBottom: '8px' }}>
+        <svg width="100%" viewBox={`0 0 ${LW} ${LH}`} className="ab-svg">
+          {/* X grid + labels */}
+          {lTicks.map((t, i) => (
+            <g key={i}>
+              <line x1={t.x} y1={LP.top - 4} x2={t.x} y2={LP.top + activeBrands.length * rowH}
+                stroke="var(--border)" strokeWidth="0.5" />
+              <text x={t.x} y={LP.top - 8} textAnchor="middle"
+                fill="var(--text3)" fontSize="9" fontFamily="'JetBrains Mono', monospace">
+                {'£' + (t.val < 1 ? t.val.toFixed(2) : t.val.toFixed(1))}
+              </text>
+            </g>
+          ))}
+
+          {/* Rows */}
+          {activeBrands.map((brand, i) => {
+            const s = stats[brand]
+            const color = colorFor(brand)
+            const cx = lToX(s.current)
+            const xMin = lToX(s.min)
+            const xMax = lToX(s.max)
+            const cy = lToY(i)
+            return (
+              <g key={brand}>
+                {/* Alternating row background */}
+                {i % 2 === 0 && (
+                  <rect x={LP.left} y={cy - rowH / 2} width={lPlotW} height={rowH}
+                    fill="var(--text)" opacity="0.02" />
+                )}
+                {/* Brand label */}
+                <text x={LP.left - 8} y={cy + 3.5} textAnchor="end"
+                  fill="var(--text2)" fontSize="10" fontFamily="'DM Sans', sans-serif">
+                  {brand.length > 24 ? brand.slice(0, 22) + '…' : brand}
+                </text>
+                {/* Whisker (min–max range) */}
+                <line x1={xMin} y1={cy} x2={xMax} y2={cy}
+                  stroke={color} strokeWidth="2" opacity="0.3" strokeLinecap="round" />
+                {/* Min/max caps */}
+                <line x1={xMin} y1={cy - 4} x2={xMin} y2={cy + 4} stroke={color} strokeWidth="1.5" opacity="0.3" />
+                <line x1={xMax} y1={cy - 4} x2={xMax} y2={cy + 4} stroke={color} strokeWidth="1.5" opacity="0.3" />
+                {/* Current cost dot */}
+                <circle cx={cx} cy={cy} r="5" fill={color} stroke="var(--surface)" strokeWidth="1.5" />
+                {/* Cost label */}
+                <text x={cx + 10} y={cy + 3.5}
+                  fill="var(--text)" fontSize="9" fontWeight="600"
+                  fontFamily="'JetBrains Mono', monospace">
+                  {fmtCost(s.current)}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
+      </div>
+
+      {/* ── Legend ───────────────────────────────────────────── */}
       <div className="ab-legend">
         {visibleBrands.map(brand => {
           const isOff = hidden.has(brand)
-          const lastCost = [...series[brand]].reverse().find(v => v != null)
           return (
             <button
               key={brand}
@@ -521,7 +618,6 @@ function AllBrandsChart({ history, supplement, accent }) {
             >
               <span className="ab-leg-bar" style={{ background: isOff ? 'var(--text3)' : colorFor(brand) }} />
               <span className="ab-leg-name">{brand}</span>
-              {lastCost != null && <span className="ab-leg-cost">{fmtCost(lastCost)}</span>}
             </button>
           )
         })}
@@ -529,7 +625,6 @@ function AllBrandsChart({ history, supplement, accent }) {
     </div>
   )
 }
-
 
 /* ── Main Panel ─────────────────────────────────────────────────── */
 
@@ -919,6 +1014,11 @@ td.brand-cell a:hover { border-color: var(--text2); }
   font-size: 10px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.5px; color: var(--text3);
 }
+.ab-section-label {
+  font-size: 9px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.4px; color: var(--text3); padding: 10px 18px 0;
+  opacity: 0.7;
+}
 .ab-toggle {
   font-family: var(--mono); font-size: 10px; font-weight: 500;
   color: var(--text2); background: var(--surface);
@@ -933,7 +1033,7 @@ td.brand-cell a:hover { border-color: var(--text2); }
   position: absolute; top: 6px;
   background: var(--surface); border: 1px solid var(--border-hi);
   border-radius: 8px; padding: 8px 12px;
-  pointer-events: none; z-index: 10; min-width: 200px;
+  pointer-events: none; z-index: 10; min-width: 210px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.45);
 }
 .ab-tip-date {
@@ -944,13 +1044,16 @@ td.brand-cell a:hover { border-color: var(--text2); }
   display: flex; align-items: center; gap: 6px;
   padding: 1.5px 0; font-family: var(--mono);
 }
+.ab-tip-rank {
+  font-size: 9px; color: var(--text3); min-width: 18px;
+}
 .ab-tip-dot {
   width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0;
 }
 .ab-tip-name {
   flex: 1; font-size: 10px; color: var(--text2);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  max-width: 130px;
+  max-width: 120px;
 }
 .ab-tip-val {
   font-size: 10px; font-weight: 600; color: var(--text);
@@ -975,9 +1078,6 @@ td.brand-cell a:hover { border-color: var(--text2); }
 }
 .ab-leg-name {
   max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.ab-leg-cost {
-  font-family: var(--mono); font-size: 9px; color: var(--text3); margin-left: 1px;
 }
 
 @media (max-width: 768px) {
