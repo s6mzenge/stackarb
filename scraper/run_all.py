@@ -219,8 +219,9 @@ def main():
             history = {"snapshots": []}
 
     # Build snapshot: { date, omega3: {brand: cost, ...}, ... }
-    # When a scrape falls back to spreadsheet values (e.g. iHerb blocked),
-    # carry forward the last recorded price to avoid sawtooth oscillation.
+    # Guards against two sources of bad data in the history:
+    #   1. Scrape failures falling back to stale spreadsheet values
+    #   2. Single-run scrape errors producing wildly wrong prices
     prev_snapshot = history["snapshots"][-1] if history["snapshots"] else {}
     snapshot = {"date": output["scraped_at"]}
     for key, supp in output["supplements"].items():
@@ -229,11 +230,23 @@ def main():
         for r in supp["results"]:
             if r["prac_cost"] is not None:
                 brand = r["brand"]
+                new_cost = round(r["prac_cost"], 6)
+
                 if r["data_source"] == "spreadsheet" and brand in prev_costs:
                     # Scrape failed entirely — reuse last known price
                     costs[brand] = prev_costs[brand]
+                elif brand in prev_costs and prev_costs[brand] > 0:
+                    # Spike guard: reject values >50% different from previous
+                    change = abs(new_cost - prev_costs[brand]) / prev_costs[brand]
+                    if change > 0.50:
+                        print(f"  !! Spike rejected: {key}/{brand} "
+                              f"{prev_costs[brand]:.4f} -> {new_cost:.4f} "
+                              f"({change*100:+.0f}%)")
+                        costs[brand] = prev_costs[brand]
+                    else:
+                        costs[brand] = new_cost
                 else:
-                    costs[brand] = round(r["prac_cost"], 6)
+                    costs[brand] = new_cost
         snapshot[key] = costs
     history["snapshots"].append(snapshot)
 
