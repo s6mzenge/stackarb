@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-18T13:15:48.759036+00:00",
+  "scraped_at": "2026-04-18T13:30:56.584050+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -878,6 +878,66 @@
           "price_changed": false
         },
         {
+          "brand": "Supplemented (eBay 90) (Buy 4+)",
+          "url": "https://www.ebay.co.uk/itm/174608766060",
+          "strategy": "ebay",
+          "vegan": false,
+          "scraped_price": 7.19,
+          "scraped_amount": 90,
+          "scraped_dosage": 50.0,
+          "known_price": 7.99,
+          "known_amount": 90,
+          "known_dosage": 50,
+          "final_price": 7.19,
+          "final_amount": 90,
+          "final_dosage": 50.0,
+          "theo_cost": 0.0798888888888889,
+          "prac_cost": 0.0798888888888889,
+          "prac_caps": 1,
+          "data_source": "live",
+          "price_changed": true
+        },
+        {
+          "brand": "Supplemented (eBay 90) (Buy 3)",
+          "url": "https://www.ebay.co.uk/itm/174608766060",
+          "strategy": "ebay",
+          "vegan": false,
+          "scraped_price": 7.64,
+          "scraped_amount": 90,
+          "scraped_dosage": 50.0,
+          "known_price": 7.99,
+          "known_amount": 90,
+          "known_dosage": 50,
+          "final_price": 7.64,
+          "final_amount": 90,
+          "final_dosage": 50.0,
+          "theo_cost": 0.08488888888888889,
+          "prac_cost": 0.08488888888888889,
+          "prac_caps": 1,
+          "data_source": "live",
+          "price_changed": false
+        },
+        {
+          "brand": "Supplemented (eBay 90) (Buy 2)",
+          "url": "https://www.ebay.co.uk/itm/174608766060",
+          "strategy": "ebay",
+          "vegan": false,
+          "scraped_price": 8.09,
+          "scraped_amount": 90,
+          "scraped_dosage": 50.0,
+          "known_price": 7.99,
+          "known_amount": 90,
+          "known_dosage": 50,
+          "final_price": 8.09,
+          "final_amount": 90,
+          "final_dosage": 50.0,
+          "theo_cost": 0.0898888888888889,
+          "prac_cost": 0.0898888888888889,
+          "prac_caps": 1,
+          "data_source": "live",
+          "price_changed": false
+        },
+        {
           "brand": "Supplemented (90)",
           "url": "https://www.supplemented.co.uk/products/lycopene-50mg-capsules",
           "strategy": "shopify",
@@ -898,7 +958,7 @@
           "price_changed": true
         },
         {
-          "brand": "Supplemented (eBay 90)",
+          "brand": "Supplemented (eBay 90) (Buy 1)",
           "url": "https://www.ebay.co.uk/itm/174608766060",
           "strategy": "ebay",
           "vegan": false,
