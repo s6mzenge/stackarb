@@ -298,20 +298,22 @@ function CostCell({ cost, history, supplement, brand, accent, doseLabel, isTop }
 }
 
 
-/* ── All-Brands Chart (inline in each panel) ───────────────────── */
+/* ── All-Brands Price Chart ─────────────────────────────────────── */
 
-const CHART_COLORS = [
-  '#3dc97a', '#3b8beb', '#e85d4a', '#d4a843', '#a87cf7',
-  '#4dd4c0', '#eb6b9d', '#7aade0', '#f0a050', '#8dd47a',
-  '#c97adb', '#5cc4e8', '#e0c45a', '#7a8cf7', '#e87a6a',
+const PALETTE = [
+  '#3dc97a', '#3b8beb', '#f0a050', '#a87cf7', '#e85d75',
+  '#4dd4c0', '#e8c94a', '#7aade0', '#d47adb', '#5cc4e8',
+  '#8dd47a', '#eb8a6b', '#6b9cf7', '#c4a85c', '#e87aaa',
 ]
+const DEFAULT_VISIBLE = 8
 
 function AllBrandsChart({ history, supplement, accent }) {
-  const [highlighted, setHighlighted] = useState(null)
+  const [showAll, setShowAll] = useState(false)
+  const [hidden, setHidden] = useState(new Set())
   const [hover, setHover] = useState(null)
 
-  const { brands, series, dates } = useMemo(() => {
-    if (!history?.snapshots?.length) return { brands: [], series: {}, dates: [] }
+  const { allBrands, series, dates } = useMemo(() => {
+    if (!history?.snapshots?.length) return { allBrands: [], series: {}, dates: [] }
 
     const brandSet = new Set()
     for (const snap of history.snapshots) {
@@ -332,51 +334,76 @@ function AllBrandsChart({ history, supplement, accent }) {
       return aLast - bLast
     })
 
-    return { brands: sorted, series: ser, dates: allDates }
+    return { allBrands: sorted, series: ser, dates: allDates }
   }, [history, supplement])
 
-  if (brands.length === 0) return null
+  if (allBrands.length === 0) return null
 
-  const colorFor = (i) => CHART_COLORS[i % CHART_COLORS.length]
+  const visibleBrands = showAll ? allBrands : allBrands.slice(0, DEFAULT_VISIBLE)
+  const activeBrands = visibleBrands.filter(b => !hidden.has(b))
+  const hiddenCount = allBrands.length - DEFAULT_VISIBLE
 
-  const W = 660, H = 260
-  const PAD = { top: 16, right: 16, bottom: 36, left: 60 }
+  const colorFor = (brand) => {
+    const idx = allBrands.indexOf(brand)
+    return PALETTE[idx % PALETTE.length]
+  }
+
+  const toggleBrand = (brand) => {
+    setHidden(prev => {
+      const next = new Set(prev)
+      if (next.has(brand)) next.delete(brand)
+      else next.add(brand)
+      return next
+    })
+  }
+
+  // Chart dimensions
+  const W = 660, H = 240
+  const PAD = { top: 14, right: 14, bottom: 32, left: 56 }
   const plotW = W - PAD.left - PAD.right
   const plotH = H - PAD.top - PAD.bottom
 
-  const allVals = brands.flatMap(b => series[b].filter(v => v != null))
-  const dataMin = Math.min(...allVals)
-  const dataMax = Math.max(...allVals)
-  const margin = (dataMax - dataMin) * 0.08 || 0.01
-  const yMin = Math.max(0, dataMin - margin)
-  const yMax = dataMax + margin
+  // Y-range from ACTIVE brands only
+  const activeVals = activeBrands.flatMap(b => series[b].filter(v => v != null))
+  if (activeVals.length === 0) return null
+  const dataMin = Math.min(...activeVals)
+  const dataMax = Math.max(...activeVals)
+  const yPad = (dataMax - dataMin) * 0.1 || 0.01
+  const yMin = Math.max(0, dataMin - yPad)
+  const yMax = dataMax + yPad
   const yRange = yMax - yMin
 
   const toX = (i) => PAD.left + (i / (dates.length - 1)) * plotW
   const toY = (v) => PAD.top + (1 - (v - yMin) / yRange) * plotH
 
-  const polylines = brands.map((brand, bi) => {
+  // Build polylines for visible brands only
+  const polylines = visibleBrands.map(brand => {
+    const isHidden = hidden.has(brand)
     const vals = series[brand]
     const segments = []
     let current = []
     for (let i = 0; i < vals.length; i++) {
       if (vals[i] != null) {
-        current.push({ x: toX(i), y: toY(vals[i]), idx: i, cost: vals[i] })
+        current.push({ x: toX(i), y: isHidden ? 0 : toY(Math.max(yMin, Math.min(yMax, vals[i]))), cost: vals[i] })
       } else if (current.length > 0) {
         segments.push(current)
         current = []
       }
     }
     if (current.length > 0) segments.push(current)
-    return { brand, color: colorFor(bi), segments }
+    return { brand, color: colorFor(brand), segments, isHidden }
   })
 
+  // Y ticks
   const nTicks = 5
   const yTicks = Array.from({ length: nTicks }, (_, i) => {
     const val = yMin + (i / (nTicks - 1)) * yRange
     return { val, y: toY(val) }
   })
+  // Smart label format: use 2 decimals if range > £1, 4 if tight
+  const yFmt = yRange > 1 ? (v) => '£' + v.toFixed(2) : (v) => '£' + v.toFixed(4)
 
+  // X labels
   const nLabels = Math.min(6, dates.length)
   const xLabels = nLabels < 2 ? [] : Array.from({ length: nLabels }, (_, i) => {
     const idx = Math.round(i * (dates.length - 1) / (nLabels - 1))
@@ -392,19 +419,25 @@ function AllBrandsChart({ history, supplement, accent }) {
     setHover(Math.max(0, Math.min(dates.length - 1, snapIdx)))
   }
 
-  const tooltipData = hover != null ? brands
-    .map((b, i) => ({ brand: b, cost: series[b][hover], color: colorFor(i) }))
+  const tooltipData = hover != null ? activeBrands
+    .map(b => ({ brand: b, cost: series[b][hover], color: colorFor(b) }))
     .filter(d => d.cost != null)
-    .sort((a, b) => a.cost - b.cost)
-    .slice(0, 8) : []
+    .sort((a, b) => a.cost - b.cost) : []
 
   const tooltipXPct = hover != null ? (toX(hover) / W) * 100 : 0
-  const tooltipFlip = tooltipXPct > 65
 
   return (
-    <div className="ab-chart">
-      <div className="ab-chart-label">Price history — all products</div>
-      <div className="ab-chart-body">
+    <div className="ab-wrap">
+      <div className="ab-head">
+        <span className="ab-title">Price history — all products</span>
+        {hiddenCount > 0 && (
+          <button className="ab-toggle" onClick={() => { setShowAll(!showAll); setHidden(new Set()) }}>
+            {showAll ? `Top ${DEFAULT_VISIBLE} only` : `Show all ${allBrands.length}`}
+          </button>
+        )}
+      </div>
+
+      <div className="ab-body">
         <svg
           width="100%"
           viewBox={`0 0 ${W} ${H}`}
@@ -416,33 +449,31 @@ function AllBrandsChart({ history, supplement, accent }) {
             <g key={i}>
               <line x1={PAD.left} y1={t.y} x2={PAD.left + plotW} y2={t.y}
                 stroke="var(--border)" strokeWidth="0.5" />
-              <text x={PAD.left - 8} y={t.y + 3.5} textAnchor="end"
+              <text x={PAD.left - 6} y={t.y + 3.5} textAnchor="end"
                 fill="var(--text3)" fontSize="9" fontFamily="'JetBrains Mono', monospace">
-                {'£' + t.val.toFixed(2)}
+                {yFmt(t.val)}
               </text>
             </g>
           ))}
           {xLabels.map((l, i) => (
-            <text key={i} x={l.x} y={PAD.top + plotH + 18} textAnchor="middle"
+            <text key={i} x={l.x} y={PAD.top + plotH + 16} textAnchor="middle"
               fill="var(--text3)" fontSize="9" fontFamily="'JetBrains Mono', monospace">
               {l.label}
             </text>
           ))}
 
-          {polylines.map(({ brand, color, segments }) => {
-            const isHigh = highlighted === brand
-            const isFaded = highlighted != null && !isHigh
+          {polylines.map(({ brand, color, segments, isHidden }) => {
+            if (isHidden) return null
             return segments.map((pts, si) => (
               <polyline
                 key={`${brand}-${si}`}
                 points={pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}
                 fill="none"
                 stroke={color}
-                strokeWidth={isHigh ? 2.5 : 1.2}
+                strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                opacity={isFaded ? 0.07 : isHigh ? 1 : 0.5}
-                style={{ transition: 'opacity 0.15s, stroke-width 0.15s' }}
+                opacity="0.85"
               />
             ))
           })}
@@ -457,45 +488,38 @@ function AllBrandsChart({ history, supplement, accent }) {
         </svg>
 
         {hover != null && tooltipData.length > 0 && (
-          <div className="ab-tooltip" style={{
-            left: tooltipFlip ? undefined : `${tooltipXPct}%`,
-            right: tooltipFlip ? `${100 - tooltipXPct}%` : undefined,
-            transform: tooltipFlip ? 'translateX(8px)' : 'translateX(-50%)',
+          <div className="ab-tip" style={{
+            left: tooltipXPct > 60 ? undefined : `${tooltipXPct}%`,
+            right: tooltipXPct > 60 ? `${100 - tooltipXPct}%` : undefined,
+            transform: tooltipXPct > 60 ? 'translateX(12px)' : 'translateX(-50%)',
           }}>
-            <div className="ab-tooltip-date">
+            <div className="ab-tip-date">
               {new Date(dates[hover]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
             </div>
             {tooltipData.map(d => (
-              <div key={d.brand} className="ab-tooltip-row">
-                <span className="ab-tooltip-sw" style={{ background: d.color }} />
-                <span className="ab-tooltip-brand">{d.brand}</span>
-                <span className="ab-tooltip-cost">{fmtCost(d.cost)}</span>
+              <div key={d.brand} className="ab-tip-row">
+                <span className="ab-tip-dot" style={{ background: d.color }} />
+                <span className="ab-tip-name">{d.brand}</span>
+                <span className="ab-tip-val">{fmtCost(d.cost)}</span>
               </div>
             ))}
-            {brands.filter(b => series[b][hover] != null).length > 8 && (
-              <div className="ab-tooltip-more">
-                +{brands.filter(b => series[b][hover] != null).length - 8} more
-              </div>
-            )}
           </div>
         )}
       </div>
 
       <div className="ab-legend">
-        {brands.map((brand, i) => {
+        {visibleBrands.map(brand => {
+          const isOff = hidden.has(brand)
           const lastCost = [...series[brand]].reverse().find(v => v != null)
           return (
             <button
               key={brand}
-              className={`ab-legend-item ${highlighted === brand ? 'ab-active' : ''}`}
-              onMouseEnter={() => setHighlighted(brand)}
-              onMouseLeave={() => setHighlighted(null)}
+              className={`ab-leg${isOff ? ' ab-off' : ''}`}
+              onClick={() => toggleBrand(brand)}
             >
-              <span className="ab-legend-sw" style={{ background: colorFor(i) }} />
-              <span className="ab-legend-name">{brand}</span>
-              {lastCost != null && (
-                <span className="ab-legend-cost">{fmtCost(lastCost)}</span>
-              )}
+              <span className="ab-leg-bar" style={{ background: isOff ? 'var(--text3)' : colorFor(brand) }} />
+              <span className="ab-leg-name">{brand}</span>
+              {lastCost != null && <span className="ab-leg-cost">{fmtCost(lastCost)}</span>}
             </button>
           )
         })}
@@ -883,70 +907,77 @@ td.brand-cell a:hover { border-color: var(--text2); }
 }
 
 /* ── All-Brands Chart ───────────────────────────────────────── */
-.ab-chart {
+.ab-wrap {
   background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 10px; padding: 18px 20px 14px;
-  margin-bottom: 20px;
+  border-radius: 10px; margin-bottom: 20px; overflow: hidden;
 }
-.ab-chart-label {
+.ab-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px 0;
+}
+.ab-title {
   font-size: 10px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.5px; color: var(--text3); margin-bottom: 12px;
+  letter-spacing: 0.5px; color: var(--text3);
 }
-.ab-chart-body { position: relative; }
+.ab-toggle {
+  font-family: var(--mono); font-size: 10px; font-weight: 500;
+  color: var(--text2); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 5px;
+  padding: 3px 10px; cursor: pointer; transition: all 0.15s;
+}
+.ab-toggle:hover { color: var(--text); border-color: var(--border-hi); }
+.ab-body { position: relative; padding: 10px 18px 0; }
 .ab-svg { display: block; }
-.ab-tooltip {
-  position: absolute; top: 4px;
+
+.ab-tip {
+  position: absolute; top: 6px;
   background: var(--surface); border: 1px solid var(--border-hi);
   border-radius: 8px; padding: 8px 12px;
-  font-size: 11px; pointer-events: none;
-  z-index: 10; min-width: 190px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  pointer-events: none; z-index: 10; min-width: 200px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.45);
 }
-.ab-tooltip-date {
+.ab-tip-date {
   font-family: var(--mono); font-size: 9px; color: var(--text3);
   margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid var(--border);
 }
-.ab-tooltip-row {
+.ab-tip-row {
   display: flex; align-items: center; gap: 6px;
   padding: 1.5px 0; font-family: var(--mono);
 }
-.ab-tooltip-sw {
+.ab-tip-dot {
   width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0;
 }
-.ab-tooltip-brand {
+.ab-tip-name {
   flex: 1; font-size: 10px; color: var(--text2);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   max-width: 130px;
 }
-.ab-tooltip-cost {
+.ab-tip-val {
   font-size: 10px; font-weight: 600; color: var(--text);
 }
-.ab-tooltip-more {
-  font-size: 9px; color: var(--text3); margin-top: 3px; font-style: italic;
-}
+
 .ab-legend {
-  display: flex; flex-wrap: wrap; gap: 2px 4px; margin-top: 12px;
-  padding-top: 12px; border-top: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; gap: 2px; padding: 10px 14px 12px;
+  border-top: 1px solid var(--border); margin-top: 6px;
 }
-.ab-legend-item {
-  display: flex; align-items: center; gap: 5px;
+.ab-leg {
+  display: inline-flex; align-items: center; gap: 5px;
   background: transparent; border: 1px solid transparent;
-  padding: 3px 7px; border-radius: 5px;
+  padding: 3px 8px; border-radius: 5px;
   cursor: pointer; transition: all 0.15s;
-  font-family: var(--font); font-size: 10px; color: var(--text2);
+  font-family: var(--font); font-size: 10px; color: var(--text);
 }
-.ab-legend-item:hover, .ab-legend-item.ab-active {
-  background: rgba(255,255,255,0.04); border-color: var(--border);
-  color: var(--text);
-}
-.ab-legend-sw {
+.ab-leg:hover { background: rgba(255,255,255,0.04); border-color: var(--border); }
+.ab-leg.ab-off { opacity: 0.35; }
+.ab-leg.ab-off:hover { opacity: 0.6; }
+.ab-leg-bar {
   width: 10px; height: 3px; border-radius: 1px; flex-shrink: 0;
 }
-.ab-legend-name {
-  max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.ab-leg-name {
+  max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.ab-legend-cost {
-  font-family: var(--mono); font-size: 9px; color: var(--text3);
+.ab-leg-cost {
+  font-family: var(--mono); font-size: 9px; color: var(--text3); margin-left: 1px;
 }
 
 @media (max-width: 768px) {
@@ -954,7 +985,7 @@ td.brand-cell a:hover { border-color: var(--text2); }
   .panel { margin-left: 16px; margin-right: 16px; padding: 16px; }
   .chart-modal { padding: 16px; }
   .sparkline { width: 48px; }
-  .ab-chart { padding: 14px 12px 10px; }
-  .ab-tooltip { min-width: 150px; }
+  .ab-body { padding: 8px 10px 0; }
+  .ab-tip { min-width: 160px; }
 }
 `
