@@ -46,7 +46,7 @@ HEADERS = {
 # TODO: Fill these from your test scraper results
 KNOWN = {
     "Cytoplan (Omega-3 Vegan)":          (60,  83,  30.99),   # ~166mg EPA per 2 caps
-    "Troo Healthcare (Vegan Omega-3)":   (90,  200, 23.95),
+    "Troo Healthcare (Vegan Omega-3)":   (90,  100, 16.97),   # 200mg EPA per 2-cap serving = 100mg/cap
     "WeightWorld (Vegan Omega-3)":       (120, 100, 19.99),
     "Vegetology (Opti3)":                (60,  100, 21.95),
     "Nature's Best (Vegan Omega-3)":     (60,  150, 17.95),
