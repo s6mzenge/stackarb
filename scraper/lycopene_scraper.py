@@ -577,10 +577,7 @@ def extract_ebay(product, session, log):
                 status = None
 
         if status != 200:
-            log(f"    Falling back to spreadsheet values")
-            if brand in KNOWN:
-                amt, dos, pri = KNOWN[brand]
-                return {"price": pri, "amount": amt, "dosage": dos}
+            log(f"    !! eBay fetch failed (status={status})")
             return None
 
     soup = BeautifulSoup(html, "lxml")
@@ -592,10 +589,7 @@ def extract_ebay(product, session, log):
     lower = html[:5000].lower()
     if any(kw in lower for kw in ["captcha", "robot", "verify yourself",
                                     "security measure"]):
-        log(f"    !! Bot detection triggered — falling back to spreadsheet")
-        if brand in KNOWN:
-            amt, dos, pri = KNOWN[brand]
-            return {"price": pri, "amount": amt, "dosage": dos}
+        log(f"    !! Bot detection triggered")
         return None
 
     # ── Price extraction ───────────────────────────────────────────
@@ -731,20 +725,14 @@ def extract_iherb(product, session, log):
     brand = product["brand"]
 
     if not HAS_IHERB_SESSION:
-        log(f"    !! iherb_session module not available — falling back to spreadsheet")
-        if brand in KNOWN:
-            amt, dos, pri = KNOWN[brand]
-            return {"price": pri, "amount": amt, "dosage": dos}
+        log(f"    !! iherb_session module not available")
         return None
 
     log(f"    Fetching iHerb page via shared session...")
     status, html = fetch_iherb_page(url, log)
 
     if status is None or status != 200 or not html:
-        log(f"    !! iHerb fetch failed — falling back to spreadsheet")
-        if brand in KNOWN:
-            amt, dos, pri = KNOWN[brand]
-            return {"price": pri, "amount": amt, "dosage": dos}
+        log(f"    !! iHerb fetch failed (status={status})")
         return None
 
     soup = BeautifulSoup(html, "lxml")
