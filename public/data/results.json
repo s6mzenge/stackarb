@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-20T22:45:46.081305+00:00",
+  "scraped_at": "2026-04-20T23:01:08.226470+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -286,26 +286,6 @@
           "price_changed": false
         },
         {
-          "brand": "Wiley's Finest (Minis)",
-          "url": "https://www.wileysfinest.co.uk/products/easy-swallow-minis",
-          "strategy": "shopify",
-          "vegan": false,
-          "scraped_price": 17.99,
-          "scraped_amount": null,
-          "scraped_dosage": 180.0,
-          "known_price": 17.99,
-          "known_amount": 180,
-          "known_dosage": 180,
-          "final_price": 17.99,
-          "final_amount": 180,
-          "final_dosage": 180.0,
-          "theo_cost": 1.6657407407407407,
-          "prac_cost": 1.6990555555555553,
-          "prac_caps": 17,
-          "data_source": "mixed",
-          "price_changed": false
-        },
-        {
           "brand": "Supplemented (90)",
           "url": "https://www.supplemented.co.uk/products/omega3-1000mg-softgels",
           "strategy": "shopify",
@@ -386,6 +366,26 @@
           "price_changed": true
         },
         {
+          "brand": "Wiley's Finest (Minis) (180 Count (3 month supply) Exp 04/28)",
+          "url": "https://www.wileysfinest.co.uk/products/easy-swallow-minis",
+          "strategy": "shopify",
+          "vegan": false,
+          "scraped_price": 39.5,
+          "scraped_amount": 180,
+          "scraped_dosage": 180.0,
+          "known_price": 17.99,
+          "known_amount": 180,
+          "known_dosage": 180,
+          "final_price": 39.5,
+          "final_amount": 180,
+          "final_dosage": 180.0,
+          "theo_cost": 3.657407407407408,
+          "prac_cost": 3.7305555555555556,
+          "prac_caps": 17,
+          "data_source": "live",
+          "price_changed": true
+        },
+        {
           "brand": "Lamberts",
           "url": "https://victoriahealth.com/pulse-pure-fish-oil-1300mg-coq10-100mg/",
           "strategy": "meta_jsonld",
@@ -422,6 +422,26 @@
           "theo_cost": 4.845419847328245,
           "prac_cost": 5.078,
           "prac_caps": 12,
+          "data_source": "live",
+          "price_changed": false
+        },
+        {
+          "brand": "Wiley's Finest (Minis) (60 Count (1 month supply) Exp 04/28)",
+          "url": "https://www.wileysfinest.co.uk/products/easy-swallow-minis",
+          "strategy": "shopify",
+          "vegan": false,
+          "scraped_price": 17.99,
+          "scraped_amount": 60,
+          "scraped_dosage": 180.0,
+          "known_price": 17.99,
+          "known_amount": 180,
+          "known_dosage": 180,
+          "final_price": 17.99,
+          "final_amount": 60,
+          "final_dosage": 180.0,
+          "theo_cost": 4.997222222222222,
+          "prac_cost": 5.097166666666666,
+          "prac_caps": 17,
           "data_source": "live",
           "price_changed": false
         },
