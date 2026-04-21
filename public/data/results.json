@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-21T05:45:51.451971+00:00",
+  "scraped_at": "2026-04-21T06:01:04.278419+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -64,26 +64,6 @@
           "prac_caps": 9,
           "data_source": "live",
           "price_changed": false
-        },
-        {
-          "brand": "Bulk",
-          "url": "https://www.bulk.com/uk/products/super-strength-omega-3-softgels/bpb-o3ss-0000",
-          "strategy": "jsonld",
-          "vegan": false,
-          "scraped_price": 22.99,
-          "scraped_amount": 270,
-          "scraped_dosage": 330.0,
-          "known_price": 32.99,
-          "known_amount": 270,
-          "known_dosage": 330,
-          "final_price": 22.99,
-          "final_amount": 270,
-          "final_dosage": 330.0,
-          "theo_cost": 0.7740740740740741,
-          "prac_cost": 0.8514814814814814,
-          "prac_caps": 10,
-          "data_source": "live",
-          "price_changed": true
         },
         {
           "brand": "Weight World",
@@ -204,6 +184,26 @@
           "prac_caps": 6,
           "data_source": "live",
           "price_changed": true
+        },
+        {
+          "brand": "Bulk",
+          "url": "https://www.bulk.com/uk/products/super-strength-omega-3-softgels/bpb-o3ss-0000",
+          "strategy": "jsonld",
+          "vegan": false,
+          "scraped_price": 32.99,
+          "scraped_amount": 270,
+          "scraped_dosage": 330.0,
+          "known_price": 32.99,
+          "known_amount": 270,
+          "known_dosage": 330,
+          "final_price": 32.99,
+          "final_amount": 270,
+          "final_dosage": 330.0,
+          "theo_cost": 1.110774410774411,
+          "prac_cost": 1.221851851851852,
+          "prac_caps": 10,
+          "data_source": "live",
+          "price_changed": false
         },
         {
           "brand": "Supplemented (180)",
