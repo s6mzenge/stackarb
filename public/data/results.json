@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-23T00:30:58.936969+00:00",
+  "scraped_at": "2026-04-23T00:45:50.246539+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -146,26 +146,6 @@
           "price_changed": false
         },
         {
-          "brand": "NOW Foods",
-          "url": "https://uk.iherb.com/pr/now-foods-ultra-omega-3-fish-oil-180-softgels/8341",
-          "strategy": "iherb",
-          "vegan": false,
-          "scraped_price": null,
-          "scraped_amount": null,
-          "scraped_dosage": null,
-          "known_price": 31.81,
-          "known_amount": 180,
-          "known_dosage": 500,
-          "final_price": 31.81,
-          "final_amount": 180,
-          "final_dosage": 500,
-          "theo_cost": 1.0603333333333333,
-          "prac_cost": 1.0603333333333333,
-          "prac_caps": 6,
-          "data_source": "spreadsheet",
-          "price_changed": false
-        },
-        {
           "brand": "Supplement Needs",
           "url": "https://www.supplementneeds.co.uk/products/supplement-needs-omega-3-high-strength-90-softgels",
           "strategy": "shopify",
@@ -184,6 +164,26 @@
           "prac_caps": 6,
           "data_source": "live",
           "price_changed": false
+        },
+        {
+          "brand": "NOW Foods",
+          "url": "https://uk.iherb.com/pr/now-foods-ultra-omega-3-fish-oil-180-softgels/8341",
+          "strategy": "iherb",
+          "vegan": false,
+          "scraped_price": 34.14,
+          "scraped_amount": 180,
+          "scraped_dosage": 500.0,
+          "known_price": 31.81,
+          "known_amount": 180,
+          "known_dosage": 500,
+          "final_price": 34.14,
+          "final_amount": 180,
+          "final_dosage": 500.0,
+          "theo_cost": 1.138,
+          "prac_cost": 1.138,
+          "prac_caps": 6,
+          "data_source": "live",
+          "price_changed": true
         },
         {
           "brand": "Bulk",
@@ -596,19 +596,19 @@
           "url": "https://uk.iherb.com/pr/micro-ingredients-astaxanthin-12-mg-120-softgels/148176",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": null,
-          "scraped_amount": null,
-          "scraped_dosage": null,
+          "scraped_price": 30.9,
+          "scraped_amount": 120,
+          "scraped_dosage": 12.0,
           "known_price": 30.48,
           "known_amount": 120,
           "known_dosage": 12,
-          "final_price": 30.48,
+          "final_price": 30.9,
           "final_amount": 120,
-          "final_dosage": 12,
-          "theo_cost": 0.508,
-          "prac_cost": 0.508,
+          "final_dosage": 12.0,
+          "theo_cost": 0.515,
+          "prac_cost": 0.515,
           "prac_caps": 2,
-          "data_source": "spreadsheet",
+          "data_source": "live",
           "price_changed": false
         },
         {
