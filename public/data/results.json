@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-24T13:45:51.146973+00:00",
+  "scraped_at": "2026-04-24T14:01:08.684434+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -130,19 +130,19 @@
           "url": "https://www.superdrug.com/health/vitamins-supplements/minerals/vitabright-omega-3-2000mg-super-strength-fish-oil-soft-gels/p/mp-00143858",
           "strategy": "superdrug",
           "vegan": false,
-          "scraped_price": 29.99,
-          "scraped_amount": 300,
-          "scraped_dosage": 330.0,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 29.99,
           "known_amount": 300,
           "known_dosage": 330,
           "final_price": 29.99,
           "final_amount": 300,
-          "final_dosage": 330.0,
+          "final_dosage": 330,
           "theo_cost": 0.9087878787878789,
           "prac_cost": 0.9996666666666666,
           "prac_caps": 10,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         },
         {
