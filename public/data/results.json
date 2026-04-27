@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-04-27T08:15:48.125046+00:00",
+  "scraped_at": "2026-04-27T08:30:55.666791+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -22,26 +22,6 @@
           "theo_cost": 0.6422619047619048,
           "prac_cost": 0.6743750000000001,
           "prac_caps": 9,
-          "data_source": "live",
-          "price_changed": true
-        },
-        {
-          "brand": "Weight World",
-          "url": "https://www.weightworld.uk/products/omega-3-fish-oil-2000mg-softgels",
-          "strategy": "shopify",
-          "vegan": false,
-          "scraped_price": 16.69,
-          "scraped_amount": 240,
-          "scraped_dosage": 330.0,
-          "known_price": 20.99,
-          "known_amount": 240,
-          "known_dosage": 330,
-          "final_price": 16.69,
-          "final_amount": 240,
-          "final_dosage": 330.0,
-          "theo_cost": 0.6321969696969698,
-          "prac_cost": 0.6954166666666667,
-          "prac_caps": 10,
           "data_source": "live",
           "price_changed": true
         },
@@ -84,6 +64,26 @@
           "prac_caps": 9,
           "data_source": "live",
           "price_changed": false
+        },
+        {
+          "brand": "Weight World",
+          "url": "https://www.weightworld.uk/products/omega-3-fish-oil-2000mg-softgels",
+          "strategy": "shopify",
+          "vegan": false,
+          "scraped_price": 18.99,
+          "scraped_amount": 240,
+          "scraped_dosage": 330.0,
+          "known_price": 20.99,
+          "known_amount": 240,
+          "known_dosage": 330,
+          "final_price": 18.99,
+          "final_amount": 240,
+          "final_dosage": 330.0,
+          "theo_cost": 0.7193181818181817,
+          "prac_cost": 0.7912499999999999,
+          "prac_caps": 10,
+          "data_source": "live",
+          "price_changed": true
         },
         {
           "brand": "Supplemented (540)",
