@@ -15,7 +15,7 @@ Strategies:
   - iherb:    iHerb products (3) — via cloudscraper (Cloudflare bypass)
 
 Output -> C:\\Users\\morit\\Documents\\Sonstiges\\Dokumente\\lycopene_scrape_results.txt
-Requirements:  pip install requests beautifulsoup4 lxml cloudscraper
+Requirements:  pip install requests beautifulsoup4 lxml cloudscraper curl_cffi
 """
 
 import requests, json, re, time, sys, os
@@ -28,6 +28,12 @@ try:
     HAS_CLOUDSCRAPER = True
 except ImportError:
     HAS_CLOUDSCRAPER = False
+
+try:
+    from curl_cffi import requests as cffi_requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    HAS_CURL_CFFI = False
 
 try:
     from iherb_session import fetch_iherb_page
@@ -558,39 +564,65 @@ def extract_ebay(product, session, log):
 
     # Strip tracking params for cleaner request
     clean_url = url.split("?")[0]
-    log(f"    Fetching eBay page...")
-    status, html = fetch_page(clean_url, session)
-    if status != 200:
-        log(f"    !! HTTP {status}")
-        # Try with cloudscraper
-        if HAS_CLOUDSCRAPER:
-            log(f"    Trying cloudscraper...")
-            try:
-                scraper = cloudscraper.create_scraper(
-                    browser={"browser": "chrome", "platform": "windows", "desktop": True},
-                )
-                resp = scraper.get(clean_url, timeout=30)
-                status = resp.status_code
-                html = resp.text
-            except Exception as e:
-                log(f"    !! cloudscraper failed: {e}")
-                status = None
+    status, html = None, None
 
-        if status != 200:
-            log(f"    !! eBay fetch failed (status={status})")
-            return None
+    def _is_real_page(s, h):
+        """Check we got a real product page, not a bot-detection stub."""
+        if s != 200 or not h or len(h) < 30000:
+            return False
+        low = h[:5000].lower()
+        return not any(kw in low for kw in [
+            "captcha", "robot", "verify yourself",
+            "security measure", "pardon our interruption",
+        ])
+
+    # ── Attempt 1: curl_cffi (TLS fingerprint bypass — best for eBay) ──
+    if HAS_CURL_CFFI:
+        log(f"    Fetching eBay via curl_cffi (impersonate=chrome)...")
+        try:
+            cffi_session = cffi_requests.Session(impersonate="chrome")
+            resp = cffi_session.get(clean_url, timeout=30)
+            if _is_real_page(resp.status_code, resp.text):
+                status, html = resp.status_code, resp.text
+                log(f"    curl_cffi success: HTTP {status}, {len(html):,} bytes")
+            else:
+                log(f"    !! curl_cffi HTTP {resp.status_code}, {len(resp.text):,} bytes")
+        except Exception as e:
+            log(f"    !! curl_cffi failed: {e}")
+
+    # ── Attempt 2: cloudscraper ─────────────────────────────────────────
+    if not _is_real_page(status, html) and HAS_CLOUDSCRAPER:
+        log(f"    Trying cloudscraper...")
+        try:
+            scraper = cloudscraper.create_scraper(
+                browser={"browser": "chrome", "platform": "windows", "desktop": True},
+            )
+            resp = scraper.get(clean_url, timeout=30)
+            if _is_real_page(resp.status_code, resp.text):
+                status, html = resp.status_code, resp.text
+                log(f"    cloudscraper success: HTTP {status}, {len(html):,} bytes")
+            else:
+                log(f"    !! cloudscraper HTTP {resp.status_code}, {len(resp.text):,} bytes")
+        except Exception as e:
+            log(f"    !! cloudscraper failed: {e}")
+
+    # ── Attempt 3: plain requests (rarely works for eBay) ───────────────
+    if not _is_real_page(status, html):
+        log(f"    Trying plain requests...")
+        s, h = fetch_page(clean_url, session)
+        if _is_real_page(s, h):
+            status, html = s, h
+            log(f"    requests success: HTTP {status}, {len(html):,} bytes")
+
+    # ── All methods failed ──────────────────────────────────────────────
+    if not _is_real_page(status, html):
+        log(f"    !! All fetch methods failed")
+        return None
 
     soup = BeautifulSoup(html, "lxml")
     page_text = soup.get_text(" ", strip=True)
     title = soup.title.string.strip() if soup.title and soup.title.string else ""
     log(f"    Title: {title[:120]}")
-
-    # Check for CAPTCHA / bot detection
-    lower = html[:5000].lower()
-    if any(kw in lower for kw in ["captcha", "robot", "verify yourself",
-                                    "security measure"]):
-        log(f"    !! Bot detection triggered")
-        return None
 
     # ── Price extraction ───────────────────────────────────────────
     price = None
