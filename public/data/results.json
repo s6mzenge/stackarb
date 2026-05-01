@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-05-01T20:31:00.687781+00:00",
+  "scraped_at": "2026-05-01T20:46:05.565778+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -982,19 +982,19 @@
           "url": "https://uk.iherb.com/pr/nutricost-lycopene-20-mg-120-softgels/136835",
           "strategy": "iherb",
           "vegan": false,
-          "scraped_price": 17.63,
-          "scraped_amount": 120,
-          "scraped_dosage": 20.0,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 17.39,
           "known_amount": 120,
           "known_dosage": 20,
-          "final_price": 17.63,
+          "final_price": 17.39,
           "final_amount": 120,
-          "final_dosage": 20.0,
-          "theo_cost": 0.3672916666666666,
-          "prac_cost": 0.44075,
+          "final_dosage": 20,
+          "theo_cost": 0.3622916666666667,
+          "prac_cost": 0.43475,
           "prac_caps": 3,
-          "data_source": "live",
+          "data_source": "spreadsheet",
           "price_changed": false
         },
         {
