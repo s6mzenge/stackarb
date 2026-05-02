@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-05-02T01:16:00.003932+00:00",
+  "scraped_at": "2026-05-02T01:30:52.710498+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -326,26 +326,6 @@
           "price_changed": true
         },
         {
-          "brand": "WeightWorld (Vegan Omega-3)",
-          "url": "https://www.weightworld.uk/products/vegan-omega-3-softgels",
-          "strategy": "v_shopify",
-          "vegan": true,
-          "scraped_price": 26.49,
-          "scraped_amount": 90,
-          "scraped_dosage": 300.0,
-          "known_price": 19.99,
-          "known_amount": 120,
-          "known_dosage": 100,
-          "final_price": 26.49,
-          "final_amount": 90,
-          "final_dosage": 300.0,
-          "theo_cost": 2.943333333333333,
-          "prac_cost": 2.943333333333333,
-          "prac_caps": 10,
-          "data_source": "live",
-          "price_changed": true
-        },
-        {
           "brand": "Wiley's Finest (Minis) (180 Count (3 month supply) Exp 04/28)",
           "url": "https://www.wileysfinest.co.uk/products/easy-swallow-minis",
           "strategy": "shopify",
@@ -424,6 +404,26 @@
           "prac_caps": 17,
           "data_source": "live",
           "price_changed": false
+        },
+        {
+          "brand": "WeightWorld (Vegan Omega-3)",
+          "url": "https://www.weightworld.uk/products/vegan-omega-3-softgels",
+          "strategy": "v_shopify",
+          "vegan": true,
+          "scraped_price": 26.49,
+          "scraped_amount": 90,
+          "scraped_dosage": 150.0,
+          "known_price": 19.99,
+          "known_amount": 120,
+          "known_dosage": 100,
+          "final_price": 26.49,
+          "final_amount": 90,
+          "final_dosage": 150.0,
+          "theo_cost": 5.886666666666666,
+          "prac_cost": 5.886666666666666,
+          "prac_caps": 20,
+          "data_source": "live",
+          "price_changed": true
         },
         {
           "brand": "Troo Healthcare (Vegan Omega-3)",
