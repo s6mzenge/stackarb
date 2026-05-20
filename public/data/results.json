@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-05-20T01:35:40.684243+00:00",
+  "scraped_at": "2026-05-20T01:45:51.258330+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -676,19 +676,19 @@
           "url": "https://www.dolphinfitness.co.uk/en/lamberts-astaxanthin-8mg-30-capsules/298576",
           "strategy": "dolphin",
           "vegan": false,
-          "scraped_price": null,
-          "scraped_amount": null,
-          "scraped_dosage": null,
+          "scraped_price": 9.95,
+          "scraped_amount": 30,
+          "scraped_dosage": 4.0,
           "known_price": 9.99,
           "known_amount": 30,
           "known_dosage": 4,
-          "final_price": 9.99,
+          "final_price": 9.95,
           "final_amount": 30,
-          "final_dosage": 4,
-          "theo_cost": 1.9980000000000002,
-          "prac_cost": 1.9980000000000002,
+          "final_dosage": 4.0,
+          "theo_cost": 1.99,
+          "prac_cost": 1.99,
           "prac_caps": 6,
-          "data_source": "spreadsheet",
+          "data_source": "live",
           "price_changed": false
         }
       ]
