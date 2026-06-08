@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-06-08T11:01:05.208048+00:00",
+  "scraped_at": "2026-06-08T11:15:49.533815+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -451,7 +451,7 @@
           "strategy": "vegetology",
           "vegan": true,
           "scraped_price": 19.99,
-          "scraped_amount": null,
+          "scraped_amount": 60,
           "scraped_dosage": 150.0,
           "known_price": 21.95,
           "known_amount": 60,
@@ -462,7 +462,7 @@
           "theo_cost": 6.663333333333332,
           "prac_cost": 6.663333333333332,
           "prac_caps": 20,
-          "data_source": "mixed",
+          "data_source": "live",
           "price_changed": true
         },
         {
