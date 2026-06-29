@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-06-29T17:30:52.960367+00:00",
+  "scraped_at": "2026-06-29T17:45:47.720702+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -430,20 +430,20 @@
           "url": "https://www.troohealthcare.com/vegan-omega-3-algal-oil-90-softgels-epa-dha",
           "strategy": "v_jsonld",
           "vegan": true,
-          "scraped_price": 18.99,
-          "scraped_amount": 90,
-          "scraped_dosage": 100.0,
+          "scraped_price": null,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 16.97,
           "known_amount": 90,
           "known_dosage": 100,
-          "final_price": 18.99,
+          "final_price": 16.97,
           "final_amount": 90,
-          "final_dosage": 100.0,
-          "theo_cost": 6.329999999999999,
-          "prac_cost": 6.329999999999999,
+          "final_dosage": 100,
+          "theo_cost": 5.656666666666666,
+          "prac_cost": 5.656666666666666,
           "prac_caps": 30,
-          "data_source": "live",
-          "price_changed": true
+          "data_source": "spreadsheet",
+          "price_changed": false
         },
         {
           "brand": "Vegetology (Opti3)",
