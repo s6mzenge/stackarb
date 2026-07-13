@@ -1,5 +1,5 @@
 {
-  "scraped_at": "2026-07-13T02:01:23.142939+00:00",
+  "scraped_at": "2026-07-13T02:15:56.753720+00:00",
   "supplements": {
     "omega3": {
       "target_dose": 3000,
@@ -11,18 +11,18 @@
           "strategy": "shopify",
           "vegan": false,
           "scraped_price": 9.99,
-          "scraped_amount": 120,
-          "scraped_dosage": 350.0,
+          "scraped_amount": null,
+          "scraped_dosage": null,
           "known_price": 9.99,
           "known_amount": 120,
           "known_dosage": 350,
           "final_price": 9.99,
           "final_amount": 120,
-          "final_dosage": 350.0,
+          "final_dosage": 350,
           "theo_cost": 0.7135714285714285,
           "prac_cost": 0.74925,
           "prac_caps": 9,
-          "data_source": "live",
+          "data_source": "mixed",
           "price_changed": false
         },
         {
